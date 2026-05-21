@@ -141,6 +141,47 @@ const SHIFT_PATTERNS: (Shift | null)[][] = [
   [{ s: 14, e: 22 }, null,          { s: 10, e: 18 }, { s: 6,  e: 14 }, null,             { s: 14, e: 22 }, { s: 14, e: 22 }],
 ];
 
+export interface LaborSummary {
+  totalCost: number;
+  totalHours: number;
+  byPosition: { key: PositionKey; label: string; hours: number; cost: number; headcount: number }[];
+}
+
+export function buildLaborSummary(
+  restaurant: RestaurantKey,
+  pins: number[],
+  users: Users,
+  schedule: Schedule,
+): LaborSummary {
+  const dur = (sh: Shift) => sh.e > sh.s ? sh.e - sh.s : 24 - sh.s + sh.e;
+  const positions = POSITIONS[restaurant] ?? [];
+  let totalCost = 0;
+  let totalHours = 0;
+  const byPosition = positions.map((pos) => ({ key: pos.key, label: pos.label, hours: 0, cost: 0, headcount: 0 }));
+  const countedHeads: Record<string, Set<number>> = {};
+  positions.forEach((p) => { countedHeads[p.key] = new Set(); });
+  for (const pin of pins) {
+    const wage = users[pin]?.wage ?? 0;
+    const userPos = users[pin]?.position;
+    for (const day of DAYS) {
+      const sh = schedule[pin]?.[day];
+      if (!sh) continue;
+      const h = dur(sh);
+      const cost = h * wage;
+      totalHours += h;
+      totalCost  += cost;
+      const pos = sh.position ?? userPos;
+      const bucket = byPosition.find((b) => b.key === pos);
+      if (bucket) {
+        bucket.hours += h;
+        bucket.cost  += cost;
+        if (!countedHeads[pos!]?.has(pin)) { bucket.headcount++; countedHeads[pos!]?.add(pin); }
+      }
+    }
+  }
+  return { totalCost, totalHours, byPosition };
+}
+
 export function buildInitialShiftRequirements(): ShiftRequirements {
   const reqs = {} as ShiftRequirements;
   for (const rest of Object.keys(RESTAURANTS) as RestaurantKey[]) {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { Users, User, Availability, Schedule, Role, RestaurantKey, Shift, DayAvail, PositionKey, ShiftRequirements, ShiftSlot } from '@/types';
+import { Users, User, Availability, Schedule, Role, RestaurantKey, Shift, DayAvail, PositionKey, ShiftRequirements, ShiftSlot, SwapRequest, ComplianceWarning } from '@/types';
 import { INITIAL_USERS, DAYS, POSITIONS, buildInitialAvailability, buildInitialSchedule, buildInitialShiftRequirements, fmtRange } from '@/lib/constants';
 
 interface AuthUser extends User { pin: number; }
@@ -21,14 +21,21 @@ interface StoreCtx {
   setShift: (pin: number, day: string, field: 's' | 'e', value: number) => void;
   setShiftPosition: (pin: number, day: string, position: PositionKey) => void;
   toggleOff: (pin: number, day: string) => void;
-  addUser: (pin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey) => string | null;
-  editUser: (origPin: number, newPin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey) => string | null;
+  addUser: (pin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean) => string | null;
+  editUser: (origPin: number, newPin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean) => string | null;
   deleteUser: (pin: number) => void;
   flash: (msg: string) => void;
   getEmployees: (restaurant: string) => [string, User][];
   getManagers:  (restaurant: string) => [string, User][];
   getSchedulableStaff: (restaurant: string) => [string, User][];
   empWeekHours: (pin: number) => number;
+  clearSchedule: (restaurant: RestaurantKey) => void;
+  publishSchedule: (restaurant: RestaurantKey) => void;
+  getComplianceWarnings: (restaurant: RestaurantKey) => ComplianceWarning[];
+  swapRequests: Record<string, SwapRequest>;
+  requestSwap: (fromPin: number, fromDay: string, toPin: number, toDay: string) => void;
+  respondSwap: (id: string, accept: boolean) => void;
+  approveSwap: (id: string, approve: boolean) => void;
   shiftRequirements: ShiftRequirements;
   addShiftSlot: (restaurant: RestaurantKey, day: string, position: PositionKey) => void;
   updateShiftSlot: (restaurant: RestaurantKey, day: string, position: PositionKey, id: string, field: 'start' | 'end' | 'count', value: number) => void;
@@ -43,6 +50,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [availability,      setAvailability]      = useState<Availability>(() => buildInitialAvailability(INITIAL_USERS));
   const [schedule,          setSchedule]          = useState<Schedule>(() => buildInitialSchedule(INITIAL_USERS));
   const [shiftRequirements, setShiftRequirements] = useState<ShiftRequirements>(buildInitialShiftRequirements);
+  const [swapRequests,       setSwapRequests]       = useState<Record<string, SwapRequest>>({});
+  const [publishedSchedules, setPublishedSchedules] = useState<Partial<Record<RestaurantKey, Schedule>>>({});
   const [authUser,          setAuthUser]          = useState<AuthUser | null>(null);
   const [savedMsg,          setSavedMsg]          = useState('');
   const [weekOffset,        setWeekOffset]        = useState(0);
@@ -115,7 +124,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return usernameTaken ? 'Username already in use.' : null;
   }, [users]);
 
-  const addUser = useCallback((pin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey): string | null => {
+  const addUser = useCallback((pin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean): string | null => {
     if (!name.trim())                           return 'Name is required.';
     if (isNaN(pin) || String(pin).length !== 4) return 'PIN must be exactly 4 digits.';
     if (users[pin])                             return 'PIN already in use.';
@@ -127,7 +136,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         name: name.trim(),
         role,
         restaurant,
-        ...(position ? { position } : {}),
+        ...(position  ? { position }        : {}),
+        ...(wage      ? { wage }             : {}),
+        ...(isMinor   ? { isMinor: true }    : {}),
         ...(role !== 'employee' ? { username: username!.trim(), password: password!.trim() } : {}),
       },
     }));
@@ -144,7 +155,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return null;
   }, [users, validateCredentials]);
 
-  const editUser = useCallback((origPin: number, newPin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey): string | null => {
+  const editUser = useCallback((origPin: number, newPin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean): string | null => {
     if (!name.trim())                                 return 'Name is required.';
     if (isNaN(newPin) || String(newPin).length !== 4) return 'PIN must be exactly 4 digits.';
     if (newPin !== origPin && users[newPin])           return 'PIN already in use.';
@@ -157,7 +168,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         name: name.trim(),
         role,
         restaurant,
-        ...(position ? { position } : {}),
+        ...(position  ? { position }     : {}),
+        ...(wage      ? { wage }         : {}),
+        ...(isMinor   ? { isMinor: true } : {}),
         ...(role !== 'employee' ? { username: username!.trim(), password: password!.trim() } : {}),
       };
       return n;
@@ -205,6 +218,126 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const empWeekHours = useCallback((pin: number): number =>
     DAYS.reduce((acc, d) => { const sh = schedule[pin]?.[d]; return acc + (sh ? sh.e - sh.s : 0); }, 0),
   [schedule]);
+
+  const shiftDur = (sh: Shift) => sh.e > sh.s ? sh.e - sh.s : 24 - sh.s + sh.e;
+
+  const clearSchedule = useCallback((restaurant: RestaurantKey) => {
+    setSchedule((prev) => {
+      const next = { ...prev };
+      Object.entries(users).forEach(([p, u]) => {
+        if (u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager')) {
+          const pin = Number(p);
+          next[pin] = {};
+          DAYS.forEach((d) => { next[pin][d] = null; });
+        }
+      });
+      return next;
+    });
+  }, [users]);
+
+  const publishSchedule = useCallback((restaurant: RestaurantKey) => {
+    const pins = Object.entries(users)
+      .filter(([, u]) => u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager'))
+      .map(([p]) => Number(p));
+    setPublishedSchedules((prev) => ({
+      ...prev,
+      [restaurant]: Object.fromEntries(pins.map((pin) => [pin, { ...schedule[pin] }])),
+    }));
+  }, [schedule, users]);
+
+  const getComplianceWarnings = useCallback((restaurant: RestaurantKey): ComplianceWarning[] => {
+    const warnings: ComplianceWarning[] = [];
+    const staff = Object.entries(users).filter(([, u]) =>
+      u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager')
+    );
+    const published = publishedSchedules[restaurant];
+
+    for (const [pinStr, user] of staff) {
+      const pin = Number(pinStr);
+      let weeklyHours = 0;
+
+      for (let di = 0; di < DAYS.length; di++) {
+        const day  = DAYS[di];
+        const sh   = schedule[pin]?.[day];
+        if (!sh) continue;
+
+        const dur = shiftDur(sh);
+        weeklyHours += dur;
+
+        if (dur > 10) {
+          warnings.push({ type: 'long-shift', severity: 'warning', pin,
+            message: `${user.name} has a ${dur}h shift on ${day}` });
+        }
+
+        if (user.isMinor) {
+          const lateEnd = sh.e < sh.s || sh.e > 22;
+          if (lateEnd || sh.s >= 22) {
+            warnings.push({ type: 'minor-violation', severity: 'error', pin,
+              message: `${user.name} is a minor scheduled past 10 pm on ${day}` });
+          }
+        }
+
+        if (di < DAYS.length - 1) {
+          const nextSh = schedule[pin]?.[DAYS[di + 1]];
+          if (nextSh) {
+            const rest = sh.e < sh.s ? nextSh.s - sh.e : (24 - sh.e) + nextSh.s;
+            if (rest >= 0 && rest < 8) {
+              warnings.push({ type: 'short-rest', severity: 'warning', pin,
+                message: `${user.name} has only ${rest}h rest between ${day} and ${DAYS[di + 1]}` });
+            }
+          }
+        }
+
+        if (published) {
+          const pubSh = published[pin]?.[day] ?? null;
+          const curSh = schedule[pin]?.[day] ?? null;
+          if (JSON.stringify(pubSh) !== JSON.stringify(curSh)) {
+            warnings.push({ type: 'changed-after-publish', severity: 'info', pin,
+              message: `${user.name}'s ${day} shift changed after publishing` });
+          }
+        }
+      }
+
+      if (weeklyHours > 40) {
+        warnings.push({ type: 'overtime', severity: 'warning', pin,
+          message: `${user.name} is scheduled ${weeklyHours}h this week (${weeklyHours - 40}h overtime)` });
+      }
+    }
+
+    return warnings;
+  }, [schedule, users, publishedSchedules]);
+
+  const requestSwap = useCallback((fromPin: number, fromDay: string, toPin: number, toDay: string) => {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    setSwapRequests((prev) => ({ ...prev, [id]: { id, fromPin, fromDay, toPin, toDay, status: 'pending' } }));
+  }, []);
+
+  const respondSwap = useCallback((id: string, accept: boolean) => {
+    setSwapRequests((prev) => {
+      const req = prev[id];
+      if (!req) return prev;
+      return { ...prev, [id]: { ...req, status: accept ? 'awaiting_approval' : 'declined' } };
+    });
+  }, []);
+
+  const approveSwap = useCallback((id: string, approve: boolean) => {
+    setSwapRequests((prev) => {
+      const req = prev[id];
+      if (!req) return prev;
+      if (approve) {
+        setSchedule((s) => {
+          const fromShift = s[req.fromPin]?.[req.fromDay] ?? null;
+          const toShift   = s[req.toPin]?.[req.toDay]   ?? null;
+          return {
+            ...s,
+            [req.fromPin]: { ...s[req.fromPin], [req.fromDay]: toShift },
+            [req.toPin]:   { ...s[req.toPin],   [req.toDay]:   fromShift },
+          };
+        });
+      }
+      return { ...prev, [id]: { ...req, status: approve ? 'accepted' : 'declined' } };
+    });
+  }, []);
 
   const addShiftSlot = useCallback((restaurant: RestaurantKey, day: string, position: PositionKey) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -257,7 +390,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (assignedPerDay[day].has(pin)) return false;
             const avail = availability[pin]?.[day];
             if (!avail || avail.unavailable) return false;
-            if (avail.start > slot.start || avail.end < slot.end) return false;
+            const slotEndEff  = slot.end  < slot.start  ? slot.end  + 24 : slot.end;
+            const availEndEff = avail.end < avail.start ? avail.end + 24 : avail.end;
+            if (avail.start > slot.start || availEndEff < slotEndEff) return false;
             return true;
           });
           const shuffled = [...eligible].sort(() => Math.random() - 0.5);
@@ -292,6 +427,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       login, loginWithCredentials, logout, setWeekOffset, setAvailDay, setShift, setShiftPosition, toggleOff,
       addUser, editUser, deleteUser, flash,
       getEmployees, getManagers, getSchedulableStaff, empWeekHours,
+      clearSchedule, publishSchedule, getComplianceWarnings,
+      swapRequests, requestSwap, respondSwap, approveSwap,
       shiftRequirements, addShiftSlot, updateShiftSlot, removeShiftSlot, autoSchedule,
     }}>
       {children}

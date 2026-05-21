@@ -16,6 +16,8 @@ interface FormState {
   position: PositionKey | '';
   username: string;
   password: string;
+  wage: string;
+  isMinor: boolean;
 }
 
 export default function ManageStaff({ restaurant }: { restaurant: string }) {
@@ -32,7 +34,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
   const openAdd  = () => {
     const restaurantKey = restaurant as RestaurantKey;
     const defaultPosition = getPositionsForRestaurant(restaurantKey)[0]?.key ?? '';
-    setForm({ mode: 'add', pin: '', name: '', role: 'employee', restaurant: restaurantKey, position: defaultPosition, username: '', password: '' });
+    setForm({ mode: 'add', pin: '', name: '', role: 'employee', restaurant: restaurantKey, position: defaultPosition, username: '', password: '', wage: '', isMinor: false });
   };
   const openEdit = (p: number) => setForm({
     mode: 'edit',
@@ -44,15 +46,18 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
     position: users[p].position ?? '',
     username: users[p].username ?? '',
     password: users[p].password ?? '',
+    wage: users[p].wage != null ? String(users[p].wage) : '',
+    isMinor: users[p].isMinor ?? false,
   });
   const closeForm = () => { setForm(null); setFormErr(''); };
 
   const handleSave = () => {
     if (!form) return;
     const pin = parseInt(form.pin);
+    const wage = form.wage !== '' ? parseFloat(form.wage) : undefined;
     const err = form.mode === 'add'
-      ? addUser(pin, form.name, form.role, form.restaurant, form.username, form.password, form.position || undefined)
-      : editUser(form.origPin!, pin, form.name, form.role, form.restaurant, form.username, form.password, form.position || undefined);
+      ? addUser(pin, form.name, form.role, form.restaurant, form.username, form.password, form.position || undefined, wage, form.isMinor || undefined)
+      : editUser(form.origPin!, pin, form.name, form.role, form.restaurant, form.username, form.password, form.position || undefined, wage, form.isMinor || undefined);
     if (err) { setFormErr(err); return; }
     flash(form.mode === 'add' ? `${form.name} added (PIN ${form.pin})` : 'Staff member updated');
     closeForm();
@@ -126,6 +131,21 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
               </select>
             </div>
           )}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Hourly wage ($)</label>
+              <input type="number" min="0" step="0.25" value={form.wage} placeholder="e.g. 15.00"
+                onChange={(e) => setForm((f) => f && ({ ...f, wage: e.target.value }))}
+                className="w-full text-sm px-3 py-2 rounded-lg border border-black/10 bg-white focus:outline-none focus:border-black/40" />
+            </div>
+            <div className="flex items-end pb-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.isMinor} onChange={(e) => setForm((f) => f && ({ ...f, isMinor: e.target.checked }))}
+                  className="w-4 h-4 rounded border-gray-300 text-[#0D6E4F] focus:ring-[#0D6E4F]" />
+                <span className="text-sm text-gray-700">Minor (under 18)</span>
+              </label>
+            </div>
+          </div>
           {form.role === 'manager' && (
             <div className="grid grid-cols-2 gap-3 mb-4">
               <div>
@@ -159,6 +179,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
               <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">PIN</th>
               <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">Role</th>
               <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">Position</th>
+              <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">Wage</th>
               {authUser?.role === 'owner' && <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">Restaurant</th>}
               {canManage && <th className="px-4 py-3" />}
             </tr>
@@ -177,6 +198,10 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
                   <span className="text-xs px-2 py-0.5 rounded-full bg-gray-50 border border-black/10 text-gray-400 capitalize">{u.role}</span>
                 </td>
                 <td className="px-4 py-3 text-xs text-gray-400">{u.position ? getPositionLabel(u.position) : '-'}</td>
+                <td className="px-4 py-3 text-xs text-gray-400">
+                  {u.wage != null ? `$${u.wage.toFixed(2)}/h` : <span className="text-gray-300">—</span>}
+                  {u.isMinor && <span className="ml-1.5 text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-600 rounded-full font-medium">Minor</span>}
+                </td>
                 {authUser?.role === 'owner' && (
                   <td className="px-4 py-3 text-xs text-gray-400">{RESTAURANTS[u.restaurant!]?.name}</td>
                 )}

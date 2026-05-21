@@ -9,6 +9,17 @@ export interface User {
   position?: PositionKey;
   username?: string;
   password?: string;
+  wage?: number;
+  isMinor?: boolean;
+}
+
+export type ComplianceSeverity = 'info' | 'warning' | 'error';
+
+export interface ComplianceWarning {
+  type: 'overtime' | 'short-rest' | 'long-shift' | 'minor-violation' | 'changed-after-publish';
+  severity: ComplianceSeverity;
+  pin: number;
+  message: string;
 }
 
 export interface Users {
@@ -56,3 +67,12 @@ export type ShiftRequirements = {
     [day: string]: Partial<Record<PositionKey, ShiftSlot[]>>;
   };
 };
+
+export interface SwapRequest {
+  id: string;
+  fromPin: number;
+  fromDay: string;
+  toPin: number;
+  toDay: string;
+  status: 'pending' | 'awaiting_approval' | 'accepted' | 'declined';
+}
