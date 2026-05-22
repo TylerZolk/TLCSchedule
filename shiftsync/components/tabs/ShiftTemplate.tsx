@@ -37,8 +37,8 @@ export default function ShiftTemplate() {
               {positions.map(({ key: posKey, label: posLabel, className: posClass }) => {
                 const slots = reqs[day]?.[posKey] ?? [];
                 return (
-                  <div key={posKey} className="flex items-start gap-4 px-4 py-3">
-                    <span className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 mt-0.5 ${posClass}`}>
+                  <div key={posKey} className="flex flex-col sm:flex-row sm:items-start gap-2 sm:gap-4 px-4 py-3">
+                    <span className={`text-xs font-medium px-2 py-1 rounded-full shrink-0 ${posClass}`}>
                       {posLabel}
                     </span>
 

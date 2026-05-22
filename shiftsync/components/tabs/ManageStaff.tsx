@@ -82,7 +82,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
       {form && (
         <div className="bg-gray-50 border border-black/10 rounded-xl p-5 mb-4">
           <h3 className="text-sm font-semibold mb-4">{form.mode === 'add' ? 'Add staff member' : 'Edit staff member'}</h3>
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1">Full name</label>
               <input type="text" value={form.name} maxLength={40} placeholder="Jane Smith"
@@ -96,7 +96,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
                 className="w-full text-sm px-3 py-2 rounded-lg border border-black/10 bg-white focus:outline-none focus:border-black/40" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1">Role</label>
               <select value={form.role} onChange={(e) => setForm((f) => f && ({ ...f, role: e.target.value as Role }))}
@@ -131,7 +131,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
               </select>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1">Hourly wage ($)</label>
               <input type="number" min="0" step="0.25" value={form.wage} placeholder="e.g. 15.00"
@@ -147,7 +147,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
             </div>
           </div>
           {form.role === 'manager' && (
-            <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">Username</label>
                 <input type="text" value={form.username} maxLength={30} placeholder="alex"
@@ -172,7 +172,8 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
 
       {/* Table */}
       <div className="bg-white border border-black/10 rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth: '500px' }}>
           <thead>
             <tr className="bg-gray-50 border-b border-black/10">
               <th className="text-left text-xs font-medium text-gray-400 px-4 py-3">Name</th>
@@ -218,6 +219,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

@@ -75,6 +75,8 @@ export default function CalendarGrid({
           ))}
         </div>
       )}
+      <div className="overflow-x-auto">
+      <div style={{ minWidth: '680px' }}>
       {/* ── Header ── */}
       <div className="grid border-b border-black/10 bg-gray-50" style={{ gridTemplateColumns: colTemplate }}>
         <div className="px-4 py-3 text-xs font-medium text-gray-400 border-r border-black/10">Employee</div>
@@ -206,6 +208,8 @@ export default function CalendarGrid({
           <div className="px-3 py-2.5 text-right text-xs font-semibold text-[#0D6E4F]">${totalCost.toFixed(0)}</div>
         </div>
       )}
+      </div>{/* end min-width */}
+      </div>{/* end overflow-x-auto */}
       {/* ── Shift edit modal ── */}
       {editing && editUser && editDay && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setEditing(null)}>

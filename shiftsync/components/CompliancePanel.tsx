@@ -69,7 +69,7 @@ export default function CompliancePanel({ warnings, labor, users }: Props) {
           {/* Labor summary */}
           <div>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Weekly Labor</p>
-            <div className="grid grid-cols-3 gap-3 mb-3">
+            <div className="grid grid-cols-3 gap-2 mb-3">
               {[
                 { label: 'Total hours', value: `${labor.totalHours}h` },
                 { label: 'Total cost',  value: labor.totalCost > 0 ? `$${labor.totalCost.toFixed(0)}` : '—' },
@@ -77,9 +77,9 @@ export default function CompliancePanel({ warnings, labor, users }: Props) {
                     ? `$${(labor.totalCost / labor.totalHours).toFixed(2)}`
                     : '—' },
               ].map(({ label, value }) => (
-                <div key={label} className="bg-gray-50 rounded-xl px-4 py-3">
+                <div key={label} className="bg-gray-50 rounded-xl px-3 py-3">
                   <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-1">{label}</p>
-                  <p className="text-lg font-semibold text-gray-800">{value}</p>
+                  <p className="text-base font-semibold text-gray-800">{value}</p>
                 </div>
               ))}
             </div>

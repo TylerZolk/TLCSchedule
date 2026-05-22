@@ -60,7 +60,7 @@ export default function AppShell() {
         ))}
       </nav>
 
-      <main className="flex-1 p-6 max-w-[1200px] mx-auto w-full">
+      <main className="flex-1 p-3 sm:p-6 max-w-[1200px] mx-auto w-full">
         {savedMsg && <SaveBanner message={savedMsg} />}
 
         {active === 'my-schedule'   && <MySchedule />}

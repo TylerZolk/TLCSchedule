@@ -30,6 +30,7 @@ interface StoreCtx {
   getSchedulableStaff: (restaurant: string) => [string, User][];
   empWeekHours: (pin: number) => number;
   clearSchedule: (restaurant: RestaurantKey) => void;
+  publishedAt: Partial<Record<RestaurantKey, Date>>;
   publishSchedule: (restaurant: RestaurantKey) => void;
   getComplianceWarnings: (restaurant: RestaurantKey) => ComplianceWarning[];
   swapRequests: Record<string, SwapRequest>;
@@ -52,6 +53,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [shiftRequirements, setShiftRequirements] = useState<ShiftRequirements>(buildInitialShiftRequirements);
   const [swapRequests,       setSwapRequests]       = useState<Record<string, SwapRequest>>({});
   const [publishedSchedules, setPublishedSchedules] = useState<Partial<Record<RestaurantKey, Schedule>>>({});
+  const [publishedAt,        setPublishedAt]        = useState<Partial<Record<RestaurantKey, Date>>>({});
   const [authUser,          setAuthUser]          = useState<AuthUser | null>(null);
   const [savedMsg,          setSavedMsg]          = useState('');
   const [weekOffset,        setWeekOffset]        = useState(0);
@@ -243,6 +245,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ...prev,
       [restaurant]: Object.fromEntries(pins.map((pin) => [pin, { ...schedule[pin] }])),
     }));
+    setPublishedAt((prev) => ({ ...prev, [restaurant]: new Date() }));
   }, [schedule, users]);
 
   const getComplianceWarnings = useCallback((restaurant: RestaurantKey): ComplianceWarning[] => {
@@ -427,7 +430,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       login, loginWithCredentials, logout, setWeekOffset, setAvailDay, setShift, setShiftPosition, toggleOff,
       addUser, editUser, deleteUser, flash,
       getEmployees, getManagers, getSchedulableStaff, empWeekHours,
-      clearSchedule, publishSchedule, getComplianceWarnings,
+      publishedAt, clearSchedule, publishSchedule, getComplianceWarnings,
       swapRequests, requestSwap, respondSwap, approveSwap,
       shiftRequirements, addShiftSlot, updateShiftSlot, removeShiftSlot, autoSchedule,
     }}>

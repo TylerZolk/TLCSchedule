@@ -12,7 +12,7 @@ export default function OwnerSchedule() {
   const {
     users, schedule, availability, weekOffset, setWeekOffset,
     setShift, setShiftPosition, toggleOff, flash, empWeekHours,
-    getSchedulableStaff, autoSchedule, clearSchedule, publishSchedule, getComplianceWarnings,
+    getSchedulableStaff, autoSchedule, clearSchedule, publishedAt, publishSchedule, getComplianceWarnings,
   } = useStore();
 
   const [restaurant, setRestaurant] = useState<RestaurantKey>('tlc');
@@ -47,10 +47,19 @@ export default function OwnerSchedule() {
           className="px-4 py-2 text-sm font-medium border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-all">
           Clear
         </button>
-        <button onClick={handlePublish}
-          className="px-4 py-2 text-sm font-medium bg-[#0D6E4F] text-white rounded-lg hover:opacity-90 transition-all">
-          Publish
-        </button>
+        <div className="flex flex-col items-end gap-0.5">
+          <button onClick={handlePublish}
+            className="px-4 py-2 text-sm font-medium bg-[#0D6E4F] text-white rounded-lg hover:opacity-90 transition-all">
+            Publish
+          </button>
+          {publishedAt[restaurant] ? (
+            <span className="text-[10px] text-gray-400">
+              Published {publishedAt[restaurant]!.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          ) : (
+            <span className="text-[10px] text-amber-500">Not yet published</span>
+          )}
+        </div>
       </SectionHeader>
 
       <div className="flex gap-2 mb-5">

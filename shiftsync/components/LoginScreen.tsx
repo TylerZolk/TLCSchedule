@@ -42,8 +42,8 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-8 bg-[#f5f4f0]">
-      <div className="bg-white border border-black/10 rounded-2xl p-10 w-full max-w-sm shadow-sm">
+    <div className="min-h-screen flex items-center justify-center p-4 sm:p-8 bg-[#f5f4f0]">
+      <div className="bg-white border border-black/10 rounded-2xl p-6 sm:p-10 w-full max-w-sm shadow-sm">
         <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-6">ShiftSync</p>
         <h1 className="text-2xl font-medium mb-1">Good to see you</h1>
         <p className="text-sm text-gray-400 mb-6">

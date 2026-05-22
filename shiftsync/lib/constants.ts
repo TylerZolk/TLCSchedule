@@ -1,4 +1,4 @@
-import { Users, Availability, Schedule, Restaurants, Shift, PositionKey, RestaurantKey, ShiftRequirements } from '@/types';
+import { Users, Availability, Schedule, Restaurants, Shift, PositionKey, RestaurantKey, ShiftRequirements } from '@/types'; // Shift used by buildLaborSummary
 
 export const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -135,11 +135,6 @@ export function buildInitialAvailability(users: Users): Availability {
   return av;
 }
 
-const SHIFT_PATTERNS: (Shift | null)[][] = [
-  [null,          { s: 6,  e: 14 }, { s: 6,  e: 14 }, { s: 10, e: 18 }, { s: 6,  e: 14 }, null,           null          ],
-  [null,          { s: 10, e: 18 }, { s: 14, e: 22 }, { s: 14, e: 22 }, { s: 10, e: 18 }, { s: 10, e: 18 }, null        ],
-  [{ s: 14, e: 22 }, null,          { s: 10, e: 18 }, { s: 6,  e: 14 }, null,             { s: 14, e: 22 }, { s: 14, e: 22 }],
-];
 
 export interface LaborSummary {
   totalCost: number;
@@ -193,12 +188,10 @@ export function buildInitialShiftRequirements(): ShiftRequirements {
 
 export function buildInitialSchedule(users: Users): Schedule {
   const s: Schedule = {};
-  let pi = 0;
   Object.entries(users).forEach(([p, u]) => {
     if (u.role === 'employee' || u.role === 'manager') {
       s[Number(p)] = {};
-      const pat = SHIFT_PATTERNS[pi % 3]; pi++;
-      DAYS.forEach((d, i) => { s[Number(p)][d] = pat[i] ? { ...pat[i]!, position: u.position } : null; });
+      DAYS.forEach((d) => { s[Number(p)][d] = null; });
     }
   });
   return s;

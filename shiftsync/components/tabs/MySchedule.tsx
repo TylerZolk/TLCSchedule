@@ -74,7 +74,7 @@ export default function MySchedule() {
             {myShifts.map((day) => {
               const sh = schedule[myPin]![day]!;
               return (
-                <div key={day} className="flex items-center justify-between px-5 py-3 gap-4">
+                <div key={day} className="flex items-center justify-between flex-wrap px-5 py-3 gap-2">
                   <div>
                     <span className="text-sm font-medium text-gray-800">{day}</span>
                     <span className="text-xs text-gray-400 ml-2">
@@ -157,7 +157,7 @@ export default function MySchedule() {
               const badgeLabel =
                 req.status === 'awaiting_approval' ? 'pending manager' : req.status;
               return (
-                <div key={req.id} className="px-5 py-3 flex items-center justify-between gap-4">
+                <div key={req.id} className="px-5 py-3 flex items-start sm:items-center justify-between flex-wrap gap-2">
                   <div className="text-xs text-gray-500">
                     <span className="font-medium text-gray-700">{to?.name}</span>
                     {' · '}Your {req.fromDay} ({mySh ? fmtRange(mySh.s, mySh.e) : 'Off'})
