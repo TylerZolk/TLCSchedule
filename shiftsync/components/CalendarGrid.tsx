@@ -161,16 +161,17 @@ export default function CalendarGrid({
                     </div>
                   ) : (
                     /* Off day */
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-1 relative">
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-1">
                       <span className="text-[11px] text-gray-300">Off</span>
                       {editable && (
                         <button onClick={() => { onToggleOff(p, d); setEditing({ pin: p, day: d }); }}
                           className="text-[9px] px-2 py-0.5 rounded bg-[#0D6E4F]/10 text-[#0D6E4F] hover:bg-[#0D6E4F]/20 transition-all">
-                          + Add shift
+                          + Add
                         </button>
                       )}
-                      {/* subtle availability bar */}
-                      <div className="absolute bottom-1.5 left-2 right-2 h-0.5 rounded-full bg-green-100" />
+                      <span className="text-[9px] font-medium text-green-600">
+                        {fmtShort(av.start)}–{fmtShort(av.end)}
+                      </span>
                     </div>
                   )}
                 </div>

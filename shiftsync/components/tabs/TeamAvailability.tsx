@@ -14,6 +14,8 @@ export default function TeamAvailability() {
       <SectionHeader title="Team availability" sub="Hours each employee submitted as available — use this when building the schedule" />
 
       <div className="bg-white border border-black/10 rounded-xl overflow-hidden mb-6">
+        <div className="overflow-x-auto">
+        <div style={{ minWidth: '620px' }}>
         {/* Header */}
         <div className="grid border-b border-black/10 bg-gray-50" style={{ gridTemplateColumns: col }}>
           <div className="px-4 py-3 text-xs font-medium text-gray-400 border-r border-black/10">Employee</div>
@@ -56,6 +58,8 @@ export default function TeamAvailability() {
             })}
           </div>
         ))}
+        </div>{/* end min-width */}
+        </div>{/* end overflow-x-auto */}
       </div>
     </>
   );
