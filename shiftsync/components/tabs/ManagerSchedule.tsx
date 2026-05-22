@@ -44,7 +44,7 @@ export default function ManagerSchedule() {
 
   return (
     <>
-      <SectionHeader title={`${rest.name} — Schedule`} sub={`${weekLabel(dates)} · Click a shift to edit hours · Click "Off" to add a shift`}>
+      <SectionHeader title={`${rest.name} — Schedule`} sub={weekLabel(dates)}>
         <WeekNav weekOffset={weekOffset} onChange={setWeekOffset} />
         <button onClick={handleAutoSchedule}
           className="px-4 py-2 text-sm font-medium bg-white border border-black/15 text-gray-700 rounded-lg hover:bg-gray-50 transition-all">
@@ -112,32 +112,30 @@ export default function ManagerSchedule() {
               const fromSh = schedule[req.fromPin]?.[req.fromDay];
               const toSh   = schedule[req.toPin]?.[req.toDay];
               return (
-                <div key={req.id} className="px-5 py-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-800 mb-1">
-                        {from?.name} ↔ {to?.name}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-gray-500">
-                        <span className="px-2 py-1 bg-gray-100 rounded-lg">
-                          {from?.name.split(' ')[0]}'s {req.fromDay}: {fromSh ? fmtRange(fromSh.s, fromSh.e) : 'Off'}
-                        </span>
-                        <span>↔</span>
-                        <span className="px-2 py-1 bg-gray-100 rounded-lg">
-                          {to?.name.split(' ')[0]}'s {req.toDay}: {toSh ? fmtRange(toSh.s, toSh.e) : 'Off'}
-                        </span>
-                      </div>
+                <div key={req.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-800 mb-1.5">
+                      {from?.name} ↔ {to?.name}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                      <span className="px-2 py-1 bg-gray-100 rounded-lg">
+                        {from?.name.split(' ')[0]}'s {req.fromDay}: {fromSh ? fmtRange(fromSh.s, fromSh.e) : 'Off'}
+                      </span>
+                      <span>↔</span>
+                      <span className="px-2 py-1 bg-gray-100 rounded-lg">
+                        {to?.name.split(' ')[0]}'s {req.toDay}: {toSh ? fmtRange(toSh.s, toSh.e) : 'Off'}
+                      </span>
                     </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button onClick={() => { approveSwap(req.id, true); flash('Swap approved.'); }}
-                        className="px-4 py-1.5 rounded-lg bg-[#0D6E4F] text-white text-xs font-medium hover:opacity-90 transition-all">
-                        Approve
-                      </button>
-                      <button onClick={() => { approveSwap(req.id, false); flash('Swap denied.'); }}
-                        className="px-4 py-1.5 rounded-lg border border-black/10 text-xs text-gray-600 hover:bg-gray-50 transition-all">
-                        Deny
-                      </button>
-                    </div>
+                  </div>
+                  <div className="flex gap-2 shrink-0">
+                    <button onClick={() => { approveSwap(req.id, true); flash('Swap approved.'); }}
+                      className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-[#0D6E4F] text-white text-xs font-medium hover:opacity-90 transition-all">
+                      Approve
+                    </button>
+                    <button onClick={() => { approveSwap(req.id, false); flash('Swap denied.'); }}
+                      className="flex-1 sm:flex-none px-4 py-2 rounded-lg border border-black/10 text-xs text-gray-600 hover:bg-gray-50 transition-all">
+                      Deny
+                    </button>
                   </div>
                 </div>
               );

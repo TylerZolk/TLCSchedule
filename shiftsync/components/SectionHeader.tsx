@@ -9,7 +9,7 @@ export function SectionHeader({ title, sub, children }: { title: string; sub?: s
         <h2 className="text-base font-semibold">{title}</h2>
         {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
       </div>
-      {children && <div className="flex items-center gap-2 flex-shrink-0">{children}</div>}
+      {children && <div className="flex items-center flex-wrap gap-2">{children}</div>}
     </div>
   );
 }
