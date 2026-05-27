@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  pin        Int      @id
+  name       String
+  role       String
+  restaurant String?
+  position   String?
+  username   String?  @unique
+  password   String?
+  wage       Float?
+  isMinor    Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  availability     Availability[]
+  shifts           Shift[]
+  swapRequestsFrom SwapRequest[]  @relation("FromUser")
+  swapRequestsTo   SwapRequest[]  @relation("ToUser")
+}
+
+model Availability {
+  id          Int     @id @default(autoincrement())
+  pin         Int
+  day         String
+  unavailable Boolean @default(false)
+  start       Int     @default(9)
+  end         Int     @default(17)
+
+  user User @relation(fields: [pin], references: [pin], onDelete: Cascade)
+
+  @@unique([pin, day])
+}
+
+model Shift {
+  id       Int     @id @default(autoincrement())
+  pin      Int
+  day      String
+  start    Int
+  end      Int
+  position String?
+
+  user User @relation(fields: [pin], references: [pin], onDelete: Cascade)
+
+  @@unique([pin, day])
+}
+
+model ShiftSlot {
+  id         String @id
+  restaurant String
+  day        String
+  position   String
+  start      Int
+  end        Int
+  count      Int    @default(1)
+}
+
+model SwapRequest {
+  id        String   @id
+  fromPin   Int
+  fromDay   String
+  toPin     Int
+  toDay     String
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+
+  fromUser User @relation("FromUser", fields: [fromPin], references: [pin])
+  toUser   User @relation("ToUser",   fields: [toPin],   references: [pin])
+}
+
+model PublishedAt {
+  restaurant  String   @id
+  publishedAt DateTime @default(now())
+}
