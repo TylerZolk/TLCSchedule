@@ -1,0 +1,1 @@
+﻿UPDATE "Availability" SET unavailable = true WHERE unavailable = false AND open = false AND start = 9 AND "end" = 17;
