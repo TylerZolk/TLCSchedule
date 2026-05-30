@@ -70,6 +70,14 @@ export type ShiftRequirements = {
   };
 };
 
+export interface ShiftPreset {
+  id: number;
+  name: string;
+  start: number;
+  end: number;
+  position?: PositionKey;
+}
+
 export interface SwapRequest {
   id: string;
   fromPin: number;

@@ -3,13 +3,14 @@ import { prisma } from '@/lib/db';
 import { DAYS } from '@/lib/constants';
 
 export async function GET() {
-  const [users, availability, shifts, shiftSlots, swapRequests, publishedAts] = await Promise.all([
+  const [users, availability, shifts, shiftSlots, swapRequests, publishedAts, shiftPresets] = await Promise.all([
     prisma.user.findMany(),
     prisma.availability.findMany(),
     prisma.shift.findMany(),
     prisma.shiftSlot.findMany(),
     prisma.swapRequest.findMany(),
     prisma.publishedAt.findMany(),
+    prisma.shiftPreset.findMany(),
   ]);
 
   // Shape users
@@ -73,5 +74,11 @@ export async function GET() {
   const publishedAtMap: Record<string, string> = {};
   for (const p of publishedAts) publishedAtMap[p.restaurant] = p.publishedAt.toISOString();
 
-  return NextResponse.json({ users: usersMap, availability: availMap, schedule: scheduleMap, shiftRequirements: reqMap, swapRequests: swapsMap, publishedAt: publishedAtMap });
+  const presetsMap: Record<string, object[]> = {};
+  for (const p of shiftPresets) {
+    if (!presetsMap[p.restaurant]) presetsMap[p.restaurant] = [];
+    presetsMap[p.restaurant].push({ id: p.id, name: p.name, start: p.start, end: p.end, ...(p.position ? { position: p.position } : {}) });
+  }
+
+  return NextResponse.json({ users: usersMap, availability: availMap, schedule: scheduleMap, shiftRequirements: reqMap, swapRequests: swapsMap, publishedAt: publishedAtMap, shiftPresets: presetsMap });
 }

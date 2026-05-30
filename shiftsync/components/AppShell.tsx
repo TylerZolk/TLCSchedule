@@ -12,12 +12,13 @@ import TeamSchedule    from '@/components/tabs/TeamSchedule';
 import ManagerSchedule from '@/components/tabs/ManagerSchedule';
 import TeamAvailability from '@/components/tabs/TeamAvailability';
 import ShiftTemplate   from '@/components/tabs/ShiftTemplate';
+import ShiftPresets    from '@/components/tabs/ShiftPresets';
 import ManageStaff     from '@/components/tabs/ManageStaff';
 import OwnerOverview   from '@/components/tabs/OwnerOverview';
 import OwnerSchedule   from '@/components/tabs/OwnerSchedule';
 import AllSchedules    from '@/components/tabs/AllSchedules';
 
-type TabId = 'my-schedule' | 'my-avail' | 'team-schedule' | 'mgr-schedule' | 'team-avail' | 'shift-template' | 'staff' | 'overview' | 'build-schedule' | 'all-schedules' | 'all-staff';
+type TabId = 'my-schedule' | 'my-avail' | 'team-schedule' | 'mgr-schedule' | 'team-avail' | 'shift-template' | 'shift-presets' | 'staff' | 'overview' | 'build-schedule' | 'all-schedules' | 'all-staff';
 interface TabDef { id: TabId; label: string; }
 
 function getTabs(role: string): TabDef[] {
@@ -30,6 +31,7 @@ function getTabs(role: string): TabDef[] {
     { id: 'mgr-schedule',   label: 'Schedule' },
     { id: 'team-avail',     label: 'Team Availability' },
     { id: 'shift-template', label: 'Shift Template' },
+    { id: 'shift-presets',  label: 'Shift Presets' },
     { id: 'staff',          label: 'Manage Staff' },
   ];
   return [
@@ -69,6 +71,7 @@ export default function AppShell() {
         {active === 'mgr-schedule'   && <ManagerSchedule />}
         {active === 'team-avail'     && <TeamAvailability />}
         {active === 'shift-template' && <ShiftTemplate />}
+        {active === 'shift-presets'  && <ShiftPresets />}
         {active === 'staff'        && <ManageStaff restaurant={authUser!.restaurant!} />}
         {active === 'overview'        && <OwnerOverview />}
         {active === 'build-schedule'  && <OwnerSchedule />}

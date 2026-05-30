@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { DAYS, HOURS, fmtHour, fmtShort, initials, getPositionLabel, getPositionsForRestaurant, positionColorClass } from '@/lib/constants';
-import { Users, Schedule, Availability, PositionKey, Shift } from '@/types';
+import { Users, Schedule, Availability, PositionKey, Shift, ShiftPreset } from '@/types';
 
 interface Props {
   pins: number[];
@@ -13,6 +13,7 @@ interface Props {
   editable?: boolean;
   empWeekHours: (pin: number) => number;
   showCosts?: boolean;
+  presets?: ShiftPreset[];
   onAddShift: (pin: number, day: string) => void;
   onRemoveShift: (pin: number, day: string, shiftId: number) => void;
   onUpdateShift: (pin: number, day: string, shiftId: number, field: 's' | 'e', value: number) => void;
@@ -30,6 +31,7 @@ const END_HOURS = [
 export default function CalendarGrid({
   pins, users, schedule, availability, weekDates,
   editable = false, showCosts = false, empWeekHours,
+  presets = [],
   onAddShift, onRemoveShift, onUpdateShift, onUpdateShiftPosition,
 }: Props) {
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -269,6 +271,26 @@ export default function CalendarGrid({
                           : 'bg-gray-50 text-gray-400 border-black/10 hover:bg-gray-100'
                       }`}>
                       {pos.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Presets */}
+            {presets.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-medium text-gray-500 mb-2">Quick select</p>
+                <div className="flex flex-wrap gap-2">
+                  {presets.map((p) => (
+                    <button key={p.id}
+                      onClick={() => {
+                        onUpdateShift(editing!.pin, editDay, editSh.id!, 's', p.start);
+                        onUpdateShift(editing!.pin, editDay, editSh.id!, 'e', p.end);
+                        if (p.position) onUpdateShiftPosition(editing!.pin, editDay, editSh.id!, p.position);
+                      }}
+                      className="text-xs px-3 py-1.5 rounded-lg bg-gray-50 border border-black/10 text-gray-600 hover:bg-[#0D6E4F]/10 hover:border-[#0D6E4F]/30 hover:text-[#0D6E4F] transition-all">
+                      {p.name}
                     </button>
                   ))}
                 </div>

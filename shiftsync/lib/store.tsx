@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
-import { Users, User, Availability, Schedule, Role, RestaurantKey, Shift, DayAvail, PositionKey, ShiftRequirements, ShiftSlot, SwapRequest, ComplianceWarning } from '@/types';
+import { Users, User, Availability, Schedule, Role, RestaurantKey, Shift, DayAvail, PositionKey, ShiftRequirements, ShiftSlot, SwapRequest, ComplianceWarning, ShiftPreset } from '@/types';
 import { INITIAL_USERS, DAYS, POSITIONS, buildInitialAvailability, buildInitialSchedule, buildInitialShiftRequirements, fmtRange } from '@/lib/constants';
 
 const api = (path: string, method = 'GET', body?: object) =>
@@ -37,6 +37,9 @@ interface StoreCtx {
   publishedAt: Partial<Record<RestaurantKey, Date>>;
   publishSchedule: (restaurant: RestaurantKey) => void;
   getComplianceWarnings: (restaurant: RestaurantKey) => ComplianceWarning[];
+  shiftPresets: Record<RestaurantKey, ShiftPreset[]>;
+  addShiftPreset: (restaurant: RestaurantKey, name: string, start: number, end: number, position?: PositionKey) => void;
+  removeShiftPreset: (restaurant: RestaurantKey, id: number) => void;
   swapRequests: Record<string, SwapRequest>;
   requestSwap: (fromPin: number, fromDay: string, toPin: number, toDay: string) => void;
   respondSwap: (id: string, accept: boolean) => void;
@@ -55,7 +58,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [availability,      setAvailability]      = useState<Availability>(() => buildInitialAvailability(INITIAL_USERS));
   const [schedule,          setSchedule]          = useState<Schedule>(() => buildInitialSchedule(INITIAL_USERS));
   const [shiftRequirements, setShiftRequirements] = useState<ShiftRequirements>(buildInitialShiftRequirements);
-  const [swapRequests,       setSwapRequests]       = useState<Record<string, SwapRequest>>({});
+  const [swapRequests,    setSwapRequests]    = useState<Record<string, SwapRequest>>({});
+  const [shiftPresets,   setShiftPresets]    = useState<Record<RestaurantKey, ShiftPreset[]>>({ tlc: [], nickys: [], farmhouse: [] });
   const [publishedSchedules, setPublishedSchedules] = useState<Partial<Record<RestaurantKey, Schedule>>>({});
   const [publishedAt,        setPublishedAt]        = useState<Partial<Record<RestaurantKey, Date>>>({});
 
@@ -74,6 +78,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
       setShiftRequirements(baseReqs);
       setSwapRequests(data.swapRequests ?? {});
+      if (data.shiftPresets) {
+        setShiftPresets((prev) => ({ ...prev, ...data.shiftPresets }));
+      }
       const pa: Partial<Record<RestaurantKey, Date>> = {};
       for (const [k, v] of Object.entries(data.publishedAt ?? {})) pa[k as RestaurantKey] = new Date(v as string);
       if (Object.keys(pa).length) setPublishedAt(pa);
@@ -356,6 +363,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return warnings;
   }, [schedule, users, publishedSchedules]);
 
+  const addShiftPreset = useCallback((restaurant: RestaurantKey, name: string, start: number, end: number, position?: PositionKey) => {
+    api('/api/shift-presets', 'POST', { restaurant, name, start, end, position: position ?? null })
+      .then((r) => r.json()).then((data) => {
+        if (data.id) {
+          setShiftPresets((prev) => ({
+            ...prev,
+            [restaurant]: [...(prev[restaurant] ?? []), { id: data.id, name, start, end, ...(position ? { position } : {}) }],
+          }));
+        }
+      }).catch(() => {});
+  }, []);
+
+  const removeShiftPreset = useCallback((restaurant: RestaurantKey, id: number) => {
+    setShiftPresets((prev) => ({ ...prev, [restaurant]: (prev[restaurant] ?? []).filter((p) => p.id !== id) }));
+    api(`/api/shift-presets/${id}`, 'DELETE');
+  }, []);
+
   const requestSwap = useCallback((fromPin: number, fromDay: string, toPin: number, toDay: string) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setSwapRequests((prev) => ({ ...prev, [id]: { id, fromPin, fromDay, toPin, toDay, status: 'pending' } }));
@@ -486,6 +510,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addUser, editUser, deleteUser, flash,
       getEmployees, getManagers, getSchedulableStaff, empWeekHours,
       publishedAt, clearSchedule, publishSchedule, getComplianceWarnings,
+      shiftPresets, addShiftPreset, removeShiftPreset,
       swapRequests, requestSwap, respondSwap, approveSwap,
       shiftRequirements, addShiftSlot, updateShiftSlot, removeShiftSlot, autoSchedule,
     }}>

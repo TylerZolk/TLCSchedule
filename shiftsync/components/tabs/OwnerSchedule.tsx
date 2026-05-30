@@ -13,6 +13,7 @@ export default function OwnerSchedule() {
     users, schedule, availability, weekOffset, setWeekOffset,
     addShift, removeShift, updateShift, updateShiftPosition, flash, empWeekHours,
     getSchedulableStaff, autoSchedule, clearSchedule, publishedAt, publishSchedule, getComplianceWarnings,
+    shiftPresets,
   } = useStore();
 
   const [restaurant, setRestaurant] = useState<RestaurantKey>('tlc');
@@ -96,6 +97,7 @@ export default function OwnerSchedule() {
         editable={true}
         showCosts={true}
         empWeekHours={empWeekHours}
+        presets={shiftPresets[restaurant] ?? []}
         onAddShift={addShift}
         onRemoveShift={removeShift}
         onUpdateShift={updateShift}

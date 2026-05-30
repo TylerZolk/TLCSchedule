@@ -77,3 +77,12 @@ model PublishedAt {
   restaurant  String   @id
   publishedAt DateTime @default(now())
 }
+
+model ShiftPreset {
+  id         Int     @id @default(autoincrement())
+  restaurant String
+  name       String
+  start      Int
+  end        Int
+  position   String?
+}

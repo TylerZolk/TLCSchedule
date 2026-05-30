@@ -14,7 +14,7 @@ export default function ManagerSchedule() {
     authUser, users, schedule, availability, weekOffset, setWeekOffset,
     addShift, removeShift, updateShift, updateShiftPosition, flash, empWeekHours,
     getSchedulableStaff, autoSchedule, clearSchedule, publishedAt, publishSchedule, getComplianceWarnings,
-    swapRequests, approveSwap,
+    shiftPresets, swapRequests, approveSwap,
   } = useStore();
 
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -92,6 +92,7 @@ export default function ManagerSchedule() {
         editable={true}
         showCosts={true}
         empWeekHours={empWeekHours}
+        presets={shiftPresets[restaurant] ?? []}
         onAddShift={addShift}
         onRemoveShift={removeShift}
         onUpdateShift={updateShift}
