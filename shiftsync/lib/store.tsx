@@ -65,7 +65,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setUsers(data.users);
       setAvailability(data.availability);
       setSchedule(data.schedule);
-      setShiftRequirements(data.shiftRequirements);
+      // Merge API data with initial structure so restaurant/day keys always exist
+      const baseReqs = buildInitialShiftRequirements();
+      const apiReqs = data.shiftRequirements ?? {};
+      for (const rest of Object.keys(baseReqs) as RestaurantKey[]) {
+        if (apiReqs[rest]) baseReqs[rest] = { ...baseReqs[rest], ...apiReqs[rest] };
+      }
+      setShiftRequirements(baseReqs);
       setSwapRequests(data.swapRequests ?? {});
       const pa: Partial<Record<RestaurantKey, Date>> = {};
       for (const [k, v] of Object.entries(data.publishedAt ?? {})) pa[k as RestaurantKey] = new Date(v as string);

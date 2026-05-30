@@ -95,31 +95,7 @@ export function weekLabel(dates: Date[]): string {
 
 // ─── Initial data ─────────────────────────────────────────────────────────────
 
-export const INITIAL_USERS: Users = {
-  1111: { name: 'Owner',       role: 'owner',    restaurant: null,        username: 'owner', password: 'owner123' },
-  2222: { name: 'Alex Morgan', role: 'manager',  restaurant: 'tlc',       position: 'manager', username: 'alex',  password: 'tlc123' },
-  3333: { name: 'Dana Price',  role: 'manager',  restaurant: 'nickys',    username: 'dana',  password: 'nickys123' },
-  4444: { name: 'Blake Stone', role: 'manager',  restaurant: 'farmhouse', username: 'blake', password: 'farm123' },
-  1001: { name: 'Jordan Lee',    role: 'employee', restaurant: 'tlc', position: 'bartender' },
-  1002: { name: 'Sam Rivera',   role: 'employee', restaurant: 'tlc', position: 'barback'   },
-  1003: { name: 'Chris Park',   role: 'employee', restaurant: 'tlc', position: 'bouncer'   },
-  1004: { name: 'Mia Torres',   role: 'employee', restaurant: 'tlc', position: 'bartender' },
-  1005: { name: 'Eli Brooks',   role: 'employee', restaurant: 'tlc', position: 'bartender' },
-  1006: { name: 'Nora Hayes',   role: 'employee', restaurant: 'tlc', position: 'bartender' },
-  1007: { name: 'Dean Russo',   role: 'employee', restaurant: 'tlc', position: 'bartender' },
-  1008: { name: 'Leo Grant',    role: 'employee', restaurant: 'tlc', position: 'barback'   },
-  1009: { name: 'Priya Nair',   role: 'employee', restaurant: 'tlc', position: 'barback'   },
-  1010: { name: 'Zara Patel',   role: 'employee', restaurant: 'tlc', position: 'bouncer'   },
-  1011: { name: 'Owen Clarke',  role: 'employee', restaurant: 'tlc', position: 'bouncer'   },
-  1012: { name: 'Ruby James',   role: 'employee', restaurant: 'tlc', position: 'bouncer'   },
-  1013: { name: 'Finn Walsh',   role: 'employee', restaurant: 'tlc', position: 'bouncer'   },
-  2001: { name: 'Taylor Kim',  role: 'employee', restaurant: 'nickys' },
-  2002: { name: 'Jamie Bell',  role: 'employee', restaurant: 'nickys' },
-  2003: { name: 'Morgan Chen', role: 'employee', restaurant: 'nickys' },
-  3001: { name: 'Riley Fox',   role: 'employee', restaurant: 'farmhouse' },
-  3002: { name: 'Casey Webb',  role: 'employee', restaurant: 'farmhouse' },
-  3003: { name: 'Quinn Adams', role: 'employee', restaurant: 'farmhouse' },
-};
+export const INITIAL_USERS: Users = {};
 
 export function buildInitialAvailability(users: Users): Availability {
   const av: Availability = {};
@@ -127,11 +103,6 @@ export function buildInitialAvailability(users: Users): Availability {
     av[Number(p)] = {};
     DAYS.forEach((d) => { av[Number(p)][d] = { unavailable: false, start: 9, end: 17 }; });
   });
-  av[1001]['Sun'] = { unavailable: true,  start: 9,  end: 17 };
-  av[1001]['Mon'] = { unavailable: false, start: 8,  end: 14 };
-  av[1002]['Sat'] = { unavailable: true,  start: 9,  end: 17 };
-  av[2001]['Mon'] = { unavailable: false, start: 10, end: 20 };
-  av[3001]['Thu'] = { unavailable: true,  start: 9,  end: 17 };
   return av;
 }
 

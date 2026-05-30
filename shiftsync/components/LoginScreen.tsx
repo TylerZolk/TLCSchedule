@@ -153,16 +153,6 @@ export default function LoginScreen() {
         )}
 
         <p className="text-center text-sm text-red-500 min-h-[20px] mt-2">{error}</p>
-
-        <div className="mt-5 p-4 bg-gray-50 rounded-xl text-xs text-gray-400 leading-relaxed">
-          <span className="font-semibold text-gray-600">Demo employee PINs</span><br />
-          <span className="font-medium text-gray-500">TLC:</span> 1001, 1002, 1003<br />
-          <span className="font-medium text-gray-500">Nicky's:</span> 2001, 2002, 2003<br />
-          <span className="font-medium text-gray-500">Farmhouse:</span> 3001, 3002, 3003<br /><br />
-          <span className="font-semibold text-gray-600">Manager logins</span><br />
-          alex / tlc123, dana / nickys123, blake / farm123<br />
-          owner / owner123
-        </div>
       </div>
     </div>
   );

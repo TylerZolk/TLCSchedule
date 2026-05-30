@@ -11,6 +11,8 @@ export default function ShiftTemplate() {
   const positions = getPositionsForRestaurant(restaurant);
   const reqs = shiftRequirements[restaurant];
 
+  if (!reqs) return null;
+
   if (positions.length === 0) {
     return (
       <>
