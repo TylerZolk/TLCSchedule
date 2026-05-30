@@ -48,14 +48,14 @@ export function ScheduleGrid({ pins, users, schedule, weekDates }: {
         <div key={p} className="grid border-b border-black/[0.06] last:border-b-0" style={{ gridTemplateColumns: '110px repeat(7, 1fr)' }}>
           <div className="p-2 pl-3 text-[12px] font-medium flex items-center border-r border-black/[0.06]">{users[p]?.name.split(' ')[0]}</div>
           {DAYS.map((d, i) => {
-            const sh = schedule[p]?.[d];
+            const shifts = schedule[p]?.[d] ?? [];
             return (
-              <div key={d} className={`flex items-center justify-center min-h-[44px] border-r border-black/[0.04] last:border-r-0 ${isToday(weekDates[i]) ? 'bg-blue-500/[0.03]' : ''}`}>
-                {sh ? (
-                  <span className={`text-[10px] font-medium px-2 py-1 rounded-full border ${shiftColorClass(sh.s)}`}>
+              <div key={d} className={`flex flex-col items-center justify-center gap-0.5 min-h-[44px] border-r border-black/[0.04] last:border-r-0 p-1 ${isToday(weekDates[i]) ? 'bg-blue-500/[0.03]' : ''}`}>
+                {shifts.length > 0 ? shifts.map((sh, idx) => (
+                  <span key={idx} className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${shiftColorClass(sh.s)}`}>
                     {fmtShort(sh.s)}-{fmtShort(sh.e)}
                   </span>
-                ) : (
+                )) : (
                   <span className="text-[11px] text-gray-400">Off</span>
                 )}
               </div>

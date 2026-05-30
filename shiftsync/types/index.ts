@@ -28,6 +28,7 @@ export interface Users {
 
 export interface DayAvail {
   unavailable: boolean;
+  open: boolean;       // available any hours — ignores start/end
   start: number;
   end: number;
 }
@@ -37,13 +38,14 @@ export interface Availability {
 }
 
 export interface Shift {
+  id?: number;         // database ID (undefined for unsaved shifts)
   s: number;
   e: number;
   position?: PositionKey;
 }
 
 export interface Schedule {
-  [pin: number]: { [day: string]: Shift | null };
+  [pin: number]: { [day: string]: Shift[] };
 }
 
 export interface Restaurant {

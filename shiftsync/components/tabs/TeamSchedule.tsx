@@ -6,22 +6,10 @@ import { SectionHeader, WeekNav } from '@/components/SectionHeader';
 import CalendarGrid from '@/components/CalendarGrid';
 
 export default function TeamSchedule() {
-  const {
-    authUser,
-    users,
-    schedule,
-    availability,
-    weekOffset,
-    setWeekOffset,
-    setShift,
-    setShiftPosition,
-    toggleOff,
-    empWeekHours,
-    getSchedulableStaff,
-  } = useStore();
+  const { authUser, users, schedule, availability, weekOffset, setWeekOffset, empWeekHours, getSchedulableStaff } = useStore();
   const weekDates = getWeekDates(weekOffset);
-  const rest = RESTAURANTS[authUser!.restaurant!];
-  const empPins = getSchedulableStaff(authUser!.restaurant!).map(([p]) => Number(p));
+  const rest      = RESTAURANTS[authUser!.restaurant!];
+  const empPins   = getSchedulableStaff(authUser!.restaurant!).map(([p]) => Number(p));
 
   return (
     <>
@@ -36,9 +24,10 @@ export default function TeamSchedule() {
         weekDates={weekDates}
         editable={false}
         empWeekHours={empWeekHours}
-        onSetShift={setShift}
-        onSetShiftPosition={setShiftPosition}
-        onToggleOff={toggleOff}
+        onAddShift={() => {}}
+        onRemoveShift={() => {}}
+        onUpdateShift={() => {}}
+        onUpdateShiftPosition={() => {}}
       />
     </>
   );

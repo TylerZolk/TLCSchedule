@@ -21,9 +21,10 @@ interface StoreCtx {
   logout: () => void;
   setWeekOffset: React.Dispatch<React.SetStateAction<number>>;
   setAvailDay: (pin: number, day: string, field: keyof DayAvail, value: boolean | number) => void;
-  setShift: (pin: number, day: string, field: 's' | 'e', value: number) => void;
-  setShiftPosition: (pin: number, day: string, position: PositionKey) => void;
-  toggleOff: (pin: number, day: string) => void;
+  addShift: (pin: number, day: string) => void;
+  removeShift: (pin: number, day: string, shiftId: number) => void;
+  updateShift: (pin: number, day: string, shiftId: number, field: 's' | 'e', value: number) => void;
+  updateShiftPosition: (pin: number, day: string, shiftId: number, position: PositionKey) => void;
   addUser: (pin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean) => string | null;
   editUser: (origPin: number, newPin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean) => string | null;
   deleteUser: (pin: number) => void;
@@ -117,32 +118,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     api('/api/availability', 'PUT', { pin, day, field, value });
   }, []);
 
-  const setShift = useCallback((pin: number, day: string, field: 's' | 'e', value: number) => {
-    setSchedule((prev) => {
-      const cur = prev[pin]?.[day] ?? { s: 9, e: 17, position: users[pin]?.position };
-      const updated = { ...cur, [field]: value };
-      api('/api/shifts', 'PUT', { pin, day, shift: updated });
-      return { ...prev, [pin]: { ...prev[pin], [day]: updated } };
-    });
+  const addShift = useCallback((pin: number, day: string) => {
+    const tempId = Date.now();
+    const newShift: Shift = { id: tempId, s: 18, e: 2, position: users[pin]?.position };
+    setSchedule((prev) => ({
+      ...prev,
+      [pin]: { ...prev[pin], [day]: [...(prev[pin]?.[day] ?? []), newShift] },
+    }));
+    api('/api/shifts', 'POST', { pin, day, start: newShift.s, end: newShift.e, position: newShift.position ?? null })
+      .then((r) => r.json()).then((data) => {
+        if (data.id) {
+          setSchedule((prev) => ({
+            ...prev,
+            [pin]: { ...prev[pin], [day]: (prev[pin]?.[day] ?? []).map((sh) => sh.id === tempId ? { ...sh, id: data.id } : sh) },
+          }));
+        }
+      }).catch(() => {});
   }, [users]);
 
-  const setShiftPosition = useCallback((pin: number, day: string, position: PositionKey) => {
-    setSchedule((prev) => {
-      const cur = prev[pin]?.[day] ?? { s: 9, e: 17 };
-      const updated = { ...cur, position };
-      api('/api/shifts', 'PUT', { pin, day, shift: updated });
-      return { ...prev, [pin]: { ...prev[pin], [day]: updated } };
-    });
+  const removeShift = useCallback((pin: number, day: string, shiftId: number) => {
+    setSchedule((prev) => ({
+      ...prev,
+      [pin]: { ...prev[pin], [day]: (prev[pin]?.[day] ?? []).filter((sh) => sh.id !== shiftId) },
+    }));
+    api(`/api/shifts/${shiftId}`, 'DELETE');
   }, []);
 
-  const toggleOff = useCallback((pin: number, day: string) => {
-    setSchedule((prev) => {
-      const cur = prev[pin]?.[day];
-      const next = cur ? null : { s: 9, e: 17, position: users[pin]?.position };
-      api('/api/shifts', 'PUT', { pin, day, shift: next });
-      return { ...prev, [pin]: { ...prev[pin], [day]: next } };
-    });
-  }, [users]);
+  const updateShift = useCallback((pin: number, day: string, shiftId: number, field: 's' | 'e', value: number) => {
+    setSchedule((prev) => ({
+      ...prev,
+      [pin]: { ...prev[pin], [day]: (prev[pin]?.[day] ?? []).map((sh) => sh.id === shiftId ? { ...sh, [field]: value } : sh) },
+    }));
+    api(`/api/shifts/${shiftId}`, 'PUT', { [field === 's' ? 'start' : 'end']: value });
+  }, []);
+
+  const updateShiftPosition = useCallback((pin: number, day: string, shiftId: number, position: PositionKey) => {
+    setSchedule((prev) => ({
+      ...prev,
+      [pin]: { ...prev[pin], [day]: (prev[pin]?.[day] ?? []).map((sh) => sh.id === shiftId ? { ...sh, position } : sh) },
+    }));
+    api(`/api/shifts/${shiftId}`, 'PUT', { position });
+  }, []);
 
   const validateCredentials = useCallback((pin: number, role: Role, username?: string, password?: string, originalPin?: number): string | null => {
     if (role === 'employee') return null;
@@ -172,12 +188,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     api('/api/users', 'POST', { pin, ...newUser });
     setAvailability((prev) => {
       const map: { [d: string]: DayAvail } = {};
-      DAYS.forEach((d) => { map[d] = { unavailable: false, start: 9, end: 17 }; });
+      DAYS.forEach((d) => { map[d] = { unavailable: true, open: false, start: 9, end: 17 }; });
       return { ...prev, [pin]: map };
     });
     setSchedule((prev) => {
-      const map: { [d: string]: Shift | null } = {};
-      DAYS.forEach((d) => { map[d] = null; });
+      const map: { [d: string]: Shift[] } = {};
+      DAYS.forEach((d) => { map[d] = []; });
       return { ...prev, [pin]: map };
     });
     return null;
@@ -207,8 +223,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } else {
       setSchedule((prev) => {
         if (prev[newPin]) return prev;
-        const map: { [d: string]: Shift | null } = {};
-        DAYS.forEach((d) => { map[d] = null; });
+        const map: { [d: string]: Shift[] } = {};
+        DAYS.forEach((d) => { map[d] = []; });
         return { ...prev, [newPin]: map };
       });
     }
@@ -243,7 +259,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [users]);
 
   const empWeekHours = useCallback((pin: number): number =>
-    DAYS.reduce((acc, d) => { const sh = schedule[pin]?.[d]; return acc + (sh ? sh.e - sh.s : 0); }, 0),
+    DAYS.reduce((acc, d) => {
+      const shifts = schedule[pin]?.[d] ?? [];
+      return acc + shifts.reduce((a, sh) => a + shiftDur(sh), 0);
+    }, 0),
   [schedule]);
 
   const shiftDur = (sh: Shift) => sh.e > sh.s ? sh.e - sh.s : 24 - sh.s + sh.e;
@@ -252,8 +271,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const staffPins = Object.entries(users)
       .filter(([, u]) => u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager'))
       .map(([p]) => Number(p));
-    const clearedShifts: Record<number, Record<string, null>> = {};
-    staffPins.forEach((pin) => { clearedShifts[pin] = {}; DAYS.forEach((d) => { clearedShifts[pin][d] = null; }); });
+    const clearedShifts: Record<number, Record<string, Shift[]>> = {};
+    staffPins.forEach((pin) => { clearedShifts[pin] = {}; DAYS.forEach((d) => { clearedShifts[pin][d] = []; }); });
     setSchedule((prev) => ({ ...prev, ...clearedShifts }));
     api('/api/shifts/bulk', 'POST', { pins: staffPins, shifts: clearedShifts });
   }, [users]);
@@ -282,30 +301,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       let weeklyHours = 0;
 
       for (let di = 0; di < DAYS.length; di++) {
-        const day  = DAYS[di];
-        const sh   = schedule[pin]?.[day];
-        if (!sh) continue;
+        const day    = DAYS[di];
+        const shifts = schedule[pin]?.[day] ?? [];
+        if (shifts.length === 0) continue;
 
-        const dur = shiftDur(sh);
-        weeklyHours += dur;
+        for (const sh of shifts) {
+          const dur = shiftDur(sh);
+          weeklyHours += dur;
 
-        if (dur > 10) {
-          warnings.push({ type: 'long-shift', severity: 'warning', pin,
-            message: `${user.name} has a ${dur}h shift on ${day}` });
-        }
+          if (dur > 10) {
+            warnings.push({ type: 'long-shift', severity: 'warning', pin,
+              message: `${user.name} has a ${dur}h shift on ${day}` });
+          }
 
-        if (user.isMinor) {
-          const lateEnd = sh.e < sh.s || sh.e > 22;
-          if (lateEnd || sh.s >= 22) {
-            warnings.push({ type: 'minor-violation', severity: 'error', pin,
-              message: `${user.name} is a minor scheduled past 10 pm on ${day}` });
+          if (user.isMinor) {
+            const lateEnd = sh.e < sh.s || sh.e > 22;
+            if (lateEnd || sh.s >= 22) {
+              warnings.push({ type: 'minor-violation', severity: 'error', pin,
+                message: `${user.name} is a minor scheduled past 10 pm on ${day}` });
+            }
           }
         }
 
+        // Short rest: compare last shift of this day to first shift of next day
         if (di < DAYS.length - 1) {
-          const nextSh = schedule[pin]?.[DAYS[di + 1]];
-          if (nextSh) {
-            const rest = sh.e < sh.s ? nextSh.s - sh.e : (24 - sh.e) + nextSh.s;
+          const nextShifts = schedule[pin]?.[DAYS[di + 1]] ?? [];
+          if (nextShifts.length > 0) {
+            const lastSh = shifts[shifts.length - 1];
+            const firstNext = nextShifts[0];
+            const rest = lastSh.e < lastSh.s ? firstNext.s - lastSh.e : (24 - lastSh.e) + firstNext.s;
             if (rest >= 0 && rest < 8) {
               warnings.push({ type: 'short-rest', severity: 'warning', pin,
                 message: `${user.name} has only ${rest}h rest between ${day} and ${DAYS[di + 1]}` });
@@ -314,9 +338,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }
 
         if (published) {
-          const pubSh = published[pin]?.[day] ?? null;
-          const curSh = schedule[pin]?.[day] ?? null;
-          if (JSON.stringify(pubSh) !== JSON.stringify(curSh)) {
+          const pubShifts = published[pin]?.[day] ?? [];
+          const curShifts = schedule[pin]?.[day] ?? [];
+          if (JSON.stringify(pubShifts) !== JSON.stringify(curShifts)) {
             warnings.push({ type: 'changed-after-publish', severity: 'info', pin,
               message: `${user.name}'s ${day} shift changed after publishing` });
           }
@@ -355,9 +379,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!req) return prev;
       if (approve) {
         setSchedule((s) => {
-          const fromShift = s[req.fromPin]?.[req.fromDay] ?? null;
-          const toShift   = s[req.toPin]?.[req.toDay]   ?? null;
-          return { ...s, [req.fromPin]: { ...s[req.fromPin], [req.fromDay]: toShift }, [req.toPin]: { ...s[req.toPin], [req.toDay]: fromShift } };
+          const fromShifts = s[req.fromPin]?.[req.fromDay] ?? [];
+          const toShifts   = s[req.toPin]?.[req.toDay]   ?? [];
+          return { ...s, [req.fromPin]: { ...s[req.fromPin], [req.fromDay]: toShifts }, [req.toPin]: { ...s[req.toPin], [req.toDay]: fromShifts } };
         });
       }
       return { ...prev, [id]: { ...req, status } };
@@ -399,11 +423,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager')
     );
 
-    const newShifts: Record<number, Record<string, Shift | null>> = {};
+    const newShifts: Record<number, Record<string, Shift[]>> = {};
     for (const [pinStr] of staff) {
       const pin = Number(pinStr);
       newShifts[pin] = {};
-      DAYS.forEach((d) => { newShifts[pin][d] = null; });
+      DAYS.forEach((d) => { newShifts[pin][d] = []; });
     }
 
     const assignedPerDay: Record<string, Set<number>> = {};
@@ -419,6 +443,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             if (assignedPerDay[day].has(pin)) return false;
             const avail = availability[pin]?.[day];
             if (!avail || avail.unavailable) return false;
+            if (avail.open) return true;
             const slotEndEff  = slot.end  < slot.start  ? slot.end  + 24 : slot.end;
             const availEndEff = avail.end < avail.start ? avail.end + 24 : avail.end;
             if (avail.start > slot.start || availEndEff < slotEndEff) return false;
@@ -428,7 +453,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const toAssign = shuffled.slice(0, slot.count);
           for (const [pinStr] of toAssign) {
             const pin = Number(pinStr);
-            newShifts[pin][day] = { s: slot.start, e: slot.end, position: posStr };
+            newShifts[pin][day] = [...newShifts[pin][day], { s: slot.start, e: slot.end, position: posStr }];
             assignedPerDay[day].add(pin);
           }
           if (toAssign.length < slot.count) {
@@ -456,7 +481,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   return (
     <StoreContext.Provider value={{
       users, availability, schedule, authUser, savedMsg, weekOffset,
-      login, loginWithCredentials, logout, setWeekOffset, setAvailDay, setShift, setShiftPosition, toggleOff,
+      login, loginWithCredentials, logout, setWeekOffset, setAvailDay,
+      addShift, removeShift, updateShift, updateShiftPosition,
       addUser, editUser, deleteUser, flash,
       getEmployees, getManagers, getSchedulableStaff, empWeekHours,
       publishedAt, clearSchedule, publishSchedule, getComplianceWarnings,

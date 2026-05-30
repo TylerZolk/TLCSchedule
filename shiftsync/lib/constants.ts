@@ -101,7 +101,7 @@ export function buildInitialAvailability(users: Users): Availability {
   const av: Availability = {};
   Object.keys(users).forEach((p) => {
     av[Number(p)] = {};
-    DAYS.forEach((d) => { av[Number(p)][d] = { unavailable: false, start: 9, end: 17 }; });
+    DAYS.forEach((d) => { av[Number(p)][d] = { unavailable: true, open: false, start: 9, end: 17 }; });
   });
   return av;
 }
@@ -130,18 +130,19 @@ export function buildLaborSummary(
     const wage = users[pin]?.wage ?? 0;
     const userPos = users[pin]?.position;
     for (const day of DAYS) {
-      const sh = schedule[pin]?.[day];
-      if (!sh) continue;
-      const h = dur(sh);
-      const cost = h * wage;
-      totalHours += h;
-      totalCost  += cost;
-      const pos = sh.position ?? userPos;
-      const bucket = byPosition.find((b) => b.key === pos);
-      if (bucket) {
-        bucket.hours += h;
-        bucket.cost  += cost;
-        if (!countedHeads[pos!]?.has(pin)) { bucket.headcount++; countedHeads[pos!]?.add(pin); }
+      const shifts = schedule[pin]?.[day] ?? [];
+      for (const sh of shifts) {
+        const h = dur(sh);
+        const cost = h * wage;
+        totalHours += h;
+        totalCost  += cost;
+        const pos = sh.position ?? userPos;
+        const bucket = byPosition.find((b) => b.key === pos);
+        if (bucket) {
+          bucket.hours += h;
+          bucket.cost  += cost;
+          if (!countedHeads[pos!]?.has(pin)) { bucket.headcount++; countedHeads[pos!]?.add(pin); }
+        }
       }
     }
   }
@@ -162,7 +163,7 @@ export function buildInitialSchedule(users: Users): Schedule {
   Object.entries(users).forEach(([p, u]) => {
     if (u.role === 'employee' || u.role === 'manager') {
       s[Number(p)] = {};
-      DAYS.forEach((d) => { s[Number(p)][d] = null; });
+      DAYS.forEach((d) => { s[Number(p)][d] = []; });
     }
   });
   return s;

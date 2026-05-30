@@ -6,18 +6,22 @@ import { DAYS, getWeekDates, weekLabel, fmtRange, getPositionLabel } from '@/lib
 import { SectionHeader, WeekNav } from '@/components/SectionHeader';
 import CalendarGrid from '@/components/CalendarGrid';
 
+function shiftsLabel(shifts: { s: number; e: number }[]): string {
+  if (!shifts || shifts.length === 0) return 'Off';
+  return shifts.map((sh) => fmtRange(sh.s, sh.e)).join(', ');
+}
+
 export default function MySchedule() {
   const {
     authUser, users, schedule, availability, weekOffset, setWeekOffset,
-    setShift, setShiftPosition, toggleOff, empWeekHours,
+    addShift, removeShift, updateShift, updateShiftPosition, empWeekHours,
     swapRequests, requestSwap, respondSwap, getSchedulableStaff,
   } = useStore();
 
-  const dates   = getWeekDates(weekOffset);
-  const myPin   = authUser!.pin;
-  const myShifts = DAYS.filter((d) => schedule[myPin]?.[d] != null);
+  const dates  = getWeekDates(weekOffset);
+  const myPin  = authUser!.pin;
+  const myShiftDays = DAYS.filter((d) => (schedule[myPin]?.[d] ?? []).length > 0);
 
-  // Swap dialog state
   const [swapDialog, setSwapDialog] = useState<{ offerDay: string } | null>(null);
   const [toPin, setToPin]           = useState<number | ''>('');
   const [toDay, setToDay]           = useState<string>('');
@@ -26,7 +30,7 @@ export default function MySchedule() {
     .filter(([p]) => Number(p) !== myPin);
 
   const colleagueShiftDays = toPin !== ''
-    ? DAYS.filter((d) => schedule[Number(toPin)]?.[d] != null)
+    ? DAYS.filter((d) => (schedule[Number(toPin)]?.[d] ?? []).length > 0)
     : [];
 
   function submitSwap() {
@@ -40,9 +44,7 @@ export default function MySchedule() {
   const incoming = Object.values(swapRequests).filter(
     (r) => r.toPin === myPin && (r.status === 'pending' || r.status === 'awaiting_approval')
   );
-  const outgoing = Object.values(swapRequests).filter(
-    (r) => r.fromPin === myPin
-  );
+  const outgoing = Object.values(swapRequests).filter((r) => r.fromPin === myPin);
 
   return (
     <>
@@ -58,33 +60,33 @@ export default function MySchedule() {
         weekDates={dates}
         editable={false}
         empWeekHours={empWeekHours}
-        onSetShift={setShift}
-        onSetShiftPosition={setShiftPosition}
-        onToggleOff={toggleOff}
+        onAddShift={addShift}
+        onRemoveShift={removeShift}
+        onUpdateShift={updateShift}
+        onUpdateShiftPosition={updateShiftPosition}
       />
 
       {/* ── Shift swap section ── */}
-      {myShifts.length > 0 && (
+      {myShiftDays.length > 0 && (
         <div className="bg-white border border-black/10 rounded-xl overflow-hidden mb-6">
           <div className="px-5 py-3 border-b border-black/8 bg-gray-50">
             <p className="text-sm font-semibold">Request a Shift Swap</p>
             <p className="text-xs text-gray-400 mt-0.5">Offer one of your shifts and pick a colleague's shift to swap with</p>
           </div>
           <div className="divide-y divide-black/5">
-            {myShifts.map((day) => {
-              const sh = schedule[myPin]![day]!;
+            {myShiftDays.map((day) => {
+              const shifts = schedule[myPin]?.[day] ?? [];
               return (
                 <div key={day} className="flex items-center justify-between flex-wrap px-5 py-3 gap-2">
                   <div>
                     <span className="text-sm font-medium text-gray-800">{day}</span>
                     <span className="text-xs text-gray-400 ml-2">
-                      {fmtRange(sh.s, sh.e)} · {getPositionLabel(sh.position ?? authUser!.position)}
+                      {shifts.map((sh) => `${fmtRange(sh.s, sh.e)} · ${getPositionLabel(sh.position ?? authUser!.position)}`).join(' | ')}
                     </span>
                   </div>
                   <button
                     onClick={() => { setSwapDialog({ offerDay: day }); setToPin(''); setToDay(''); }}
-                    className="text-xs px-3 py-1.5 rounded-lg border border-black/10 text-gray-600 hover:bg-gray-50 transition-all whitespace-nowrap"
-                  >
+                    className="text-xs px-3 py-1.5 rounded-lg border border-black/10 text-gray-600 hover:bg-gray-50 transition-all whitespace-nowrap">
                     ↔ Request Swap
                   </button>
                 </div>
@@ -102,19 +104,19 @@ export default function MySchedule() {
           </div>
           <div className="divide-y divide-black/5">
             {incoming.map((req) => {
-              const from     = users[req.fromPin];
-              const fromSh   = schedule[req.fromPin]?.[req.fromDay];
-              const toSh     = schedule[req.toPin]?.[req.toDay];
+              const from    = users[req.fromPin];
+              const fromShs = schedule[req.fromPin]?.[req.fromDay] ?? [];
+              const toShs   = schedule[req.toPin]?.[req.toDay] ?? [];
               return (
                 <div key={req.id} className="px-5 py-4">
                   <p className="text-sm font-medium mb-1">{from?.name} wants to swap shifts</p>
                   <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
                     <span className="px-2 py-1 bg-gray-100 rounded-lg">
-                      Their {req.fromDay}: {fromSh ? fmtRange(fromSh.s, fromSh.e) : 'Off'}
+                      Their {req.fromDay}: {shiftsLabel(fromShs)}
                     </span>
                     <span>↔</span>
                     <span className="px-2 py-1 bg-gray-100 rounded-lg">
-                      Your {req.toDay}: {toSh ? fmtRange(toSh.s, toSh.e) : 'Off'}
+                      Your {req.toDay}: {shiftsLabel(toShs)}
                     </span>
                   </div>
                   {req.status === 'pending' ? (
@@ -146,23 +148,21 @@ export default function MySchedule() {
           </div>
           <div className="divide-y divide-black/5">
             {outgoing.map((req) => {
-              const to   = users[req.toPin];
-              const mySh = schedule[req.fromPin]?.[req.fromDay];
-              const theirSh = schedule[req.toPin]?.[req.toDay];
+              const to      = users[req.toPin];
+              const myShs   = schedule[req.fromPin]?.[req.fromDay] ?? [];
+              const theirShs = schedule[req.toPin]?.[req.toDay] ?? [];
               const badge =
                 req.status === 'accepted'          ? 'bg-green-100 text-green-700' :
                 req.status === 'declined'          ? 'bg-red-100 text-red-600' :
                 req.status === 'awaiting_approval' ? 'bg-blue-100 text-blue-700' :
                 'bg-amber-100 text-amber-700';
-              const badgeLabel =
-                req.status === 'awaiting_approval' ? 'pending manager' : req.status;
+              const badgeLabel = req.status === 'awaiting_approval' ? 'pending manager' : req.status;
               return (
                 <div key={req.id} className="px-5 py-3 flex items-start sm:items-center justify-between flex-wrap gap-2">
                   <div className="text-xs text-gray-500">
                     <span className="font-medium text-gray-700">{to?.name}</span>
-                    {' · '}Your {req.fromDay} ({mySh ? fmtRange(mySh.s, mySh.e) : 'Off'})
-                    {' ↔ '}
-                    Their {req.toDay} ({theirSh ? fmtRange(theirSh.s, theirSh.e) : 'Off'})
+                    {' · '}Your {req.fromDay} ({shiftsLabel(myShs)})
+                    {' ↔ '}Their {req.toDay} ({shiftsLabel(theirShs)})
                   </div>
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize ${badge}`}>
                     {badgeLabel}
@@ -183,7 +183,7 @@ export default function MySchedule() {
               <div>
                 <p className="font-semibold text-base">Request Shift Swap</p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  Offering your <span className="font-medium text-gray-700">{swapDialog.offerDay}</span> shift
+                  Offering your <span className="font-medium text-gray-700">{swapDialog.offerDay}</span> shift(s)
                 </p>
               </div>
               <button onClick={() => setSwapDialog(null)} className="text-gray-300 hover:text-gray-500 text-xl leading-none mt-0.5">✕</button>
@@ -191,15 +191,11 @@ export default function MySchedule() {
 
             <div className="mb-4">
               <p className="text-xs font-medium text-gray-500 mb-1.5">Swap with</p>
-              <select
-                value={toPin}
+              <select value={toPin}
                 onChange={(e) => { setToPin(e.target.value === '' ? '' : Number(e.target.value)); setToDay(''); }}
-                className="w-full text-sm py-2.5 px-3 rounded-xl border border-black/10 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0D6E4F]/20"
-              >
+                className="w-full text-sm py-2.5 px-3 rounded-xl border border-black/10 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0D6E4F]/20">
                 <option value="">Select a colleague…</option>
-                {colleagues.map(([p, u]) => (
-                  <option key={p} value={p}>{u.name}</option>
-                ))}
+                {colleagues.map(([p, u]) => <option key={p} value={p}>{u.name}</option>)}
               </select>
             </div>
 
@@ -211,18 +207,14 @@ export default function MySchedule() {
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {colleagueShiftDays.map((day) => {
-                      const sh = schedule[Number(toPin)]![day]!;
+                      const shs = schedule[Number(toPin)]?.[day] ?? [];
                       return (
-                        <button key={day}
-                          onClick={() => setToDay(day)}
+                        <button key={day} onClick={() => setToDay(day)}
                           className={`text-xs px-3 py-2 rounded-xl border transition-all ${
-                            toDay === day
-                              ? 'bg-[#0D6E4F] text-white border-[#0D6E4F]'
-                              : 'border-black/10 text-gray-600 hover:bg-gray-50'
-                          }`}
-                        >
+                            toDay === day ? 'bg-[#0D6E4F] text-white border-[#0D6E4F]' : 'border-black/10 text-gray-600 hover:bg-gray-50'
+                          }`}>
                           <span className="font-medium">{day}</span>
-                          <span className="ml-1 opacity-70">{fmtRange(sh.s, sh.e)}</span>
+                          <span className="ml-1 opacity-70">{shiftsLabel(shs)}</span>
                         </button>
                       );
                     })}
@@ -231,11 +223,8 @@ export default function MySchedule() {
               </div>
             )}
 
-            <button
-              onClick={submitSwap}
-              disabled={toPin === '' || !toDay}
-              className="w-full py-2.5 rounded-xl bg-[#0D6E4F] text-white text-sm font-medium hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
+            <button onClick={submitSwap} disabled={toPin === '' || !toDay}
+              className="w-full py-2.5 rounded-xl bg-[#0D6E4F] text-white text-sm font-medium hover:opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
               Send Request
             </button>
           </div>

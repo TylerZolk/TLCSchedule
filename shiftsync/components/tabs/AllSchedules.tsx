@@ -6,7 +6,7 @@ import { SectionHeader, WeekNav } from '@/components/SectionHeader';
 import CalendarGrid from '@/components/CalendarGrid';
 
 export default function AllSchedules() {
-  const { users, schedule, availability, weekOffset, setWeekOffset, setShift, setShiftPosition, toggleOff, empWeekHours, getSchedulableStaff } = useStore();
+  const { users, schedule, availability, weekOffset, setWeekOffset, empWeekHours, getSchedulableStaff } = useStore();
   const dates = getWeekDates(weekOffset);
 
   return (
@@ -31,9 +31,10 @@ export default function AllSchedules() {
                 weekDates={dates}
                 editable={false}
                 empWeekHours={empWeekHours}
-                onSetShift={setShift}
-                onSetShiftPosition={setShiftPosition}
-                onToggleOff={toggleOff}
+                onAddShift={() => {}}
+                onRemoveShift={() => {}}
+                onUpdateShift={() => {}}
+                onUpdateShiftPosition={() => {}}
               />
             </div>
           );

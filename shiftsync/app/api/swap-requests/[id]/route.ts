@@ -8,15 +8,20 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   if (swapShifts) {
     const swapReq = await prisma.swapRequest.findUnique({ where: { id } });
     if (swapReq) {
-      const fromShift = await prisma.shift.findUnique({ where: { pin_day: { pin: swapReq.fromPin, day: swapReq.fromDay } } });
-      const toShift   = await prisma.shift.findUnique({ where: { pin_day: { pin: swapReq.toPin,   day: swapReq.toDay   } } });
+      const fromShifts = await prisma.shift.findMany({ where: { pin: swapReq.fromPin, day: swapReq.fromDay } });
+      const toShifts   = await prisma.shift.findMany({ where: { pin: swapReq.toPin,   day: swapReq.toDay   } });
 
       await prisma.$transaction([
-        // Delete both sides
-        prisma.shift.deleteMany({ where: { OR: [{ pin: swapReq.fromPin, day: swapReq.fromDay }, { pin: swapReq.toPin, day: swapReq.toDay }] } }),
-        // Re-create swapped
-        ...(toShift   ? [prisma.shift.create({ data: { pin: swapReq.fromPin, day: swapReq.fromDay, start: toShift.start,   end: toShift.end,   position: toShift.position   ?? null } })] : []),
-        ...(fromShift ? [prisma.shift.create({ data: { pin: swapReq.toPin,   day: swapReq.toDay,   start: fromShift.start, end: fromShift.end, position: fromShift.position ?? null } })] : []),
+        prisma.shift.deleteMany({ where: { OR: [
+          { pin: swapReq.fromPin, day: swapReq.fromDay },
+          { pin: swapReq.toPin,   day: swapReq.toDay   },
+        ]}}),
+        ...toShifts.map((sh) =>
+          prisma.shift.create({ data: { pin: swapReq.fromPin, day: swapReq.fromDay, start: sh.start, end: sh.end, position: sh.position } })
+        ),
+        ...fromShifts.map((sh) =>
+          prisma.shift.create({ data: { pin: swapReq.toPin, day: swapReq.toDay, start: sh.start, end: sh.end, position: sh.position } })
+        ),
         prisma.swapRequest.update({ where: { id }, data: { status } }),
       ]);
       return NextResponse.json({ ok: true });

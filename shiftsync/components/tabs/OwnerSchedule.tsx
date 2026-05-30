@@ -11,7 +11,7 @@ import { RestaurantKey } from '@/types';
 export default function OwnerSchedule() {
   const {
     users, schedule, availability, weekOffset, setWeekOffset,
-    setShift, setShiftPosition, toggleOff, flash, empWeekHours,
+    addShift, removeShift, updateShift, updateShiftPosition, flash, empWeekHours,
     getSchedulableStaff, autoSchedule, clearSchedule, publishedAt, publishSchedule, getComplianceWarnings,
   } = useStore();
 
@@ -96,9 +96,10 @@ export default function OwnerSchedule() {
         editable={true}
         showCosts={true}
         empWeekHours={empWeekHours}
-        onSetShift={setShift}
-        onSetShiftPosition={setShiftPosition}
-        onToggleOff={toggleOff}
+        onAddShift={addShift}
+        onRemoveShift={removeShift}
+        onUpdateShift={updateShift}
+        onUpdateShiftPosition={updateShiftPosition}
       />
 
       <CompliancePanel warnings={complianceWarnings} labor={labor} users={users} />

@@ -29,23 +29,26 @@ export async function GET() {
   const availMap: Record<number, Record<string, object>> = {};
   for (const u of users) {
     availMap[u.pin] = {};
-    for (const d of DAYS) availMap[u.pin][d] = { unavailable: false, start: 9, end: 17 };
+    for (const d of DAYS) availMap[u.pin][d] = { unavailable: true, open: false, start: 9, end: 17 };
   }
   for (const a of availability) {
-    if (availMap[a.pin]) availMap[a.pin][a.day] = { unavailable: a.unavailable, start: a.start, end: a.end };
+    if (availMap[a.pin]) availMap[a.pin][a.day] = { unavailable: a.unavailable, open: a.open, start: a.start, end: a.end };
   }
 
-  // Shape schedule
-  const scheduleMap: Record<number, Record<string, object | null>> = {};
+  // Shape schedule — multiple shifts per day as array
+  const scheduleMap: Record<number, Record<string, object[]>> = {};
   for (const u of users) {
     if (u.role === 'employee' || u.role === 'manager') {
       scheduleMap[u.pin] = {};
-      for (const d of DAYS) scheduleMap[u.pin][d] = null;
+      for (const d of DAYS) scheduleMap[u.pin][d] = [];
     }
   }
   for (const s of shifts) {
     if (scheduleMap[s.pin]) {
-      scheduleMap[s.pin][s.day] = { s: s.start, e: s.end, ...(s.position ? { position: s.position } : {}) };
+      scheduleMap[s.pin][s.day] = [
+        ...(scheduleMap[s.pin][s.day] ?? []),
+        { id: s.id, s: s.start, e: s.end, ...(s.position ? { position: s.position } : {}) },
+      ];
     }
   }
 

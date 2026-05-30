@@ -29,7 +29,8 @@ model Availability {
   id          Int     @id @default(autoincrement())
   pin         Int
   day         String
-  unavailable Boolean @default(false)
+  unavailable Boolean @default(true)
+  open        Boolean @default(false)
   start       Int     @default(9)
   end         Int     @default(17)
 
@@ -47,8 +48,6 @@ model Shift {
   position String?
 
   user User @relation(fields: [pin], references: [pin], onDelete: Cascade)
-
-  @@unique([pin, day])
 }
 
 model ShiftSlot {

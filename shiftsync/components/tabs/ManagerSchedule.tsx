@@ -12,7 +12,7 @@ import { fmtRange } from '@/lib/constants';
 export default function ManagerSchedule() {
   const {
     authUser, users, schedule, availability, weekOffset, setWeekOffset,
-    setShift, setShiftPosition, toggleOff, flash, empWeekHours,
+    addShift, removeShift, updateShift, updateShiftPosition, flash, empWeekHours,
     getSchedulableStaff, autoSchedule, clearSchedule, publishedAt, publishSchedule, getComplianceWarnings,
     swapRequests, approveSwap,
   } = useStore();
@@ -92,9 +92,10 @@ export default function ManagerSchedule() {
         editable={true}
         showCosts={true}
         empWeekHours={empWeekHours}
-        onSetShift={setShift}
-        onSetShiftPosition={setShiftPosition}
-        onToggleOff={toggleOff}
+        onAddShift={addShift}
+        onRemoveShift={removeShift}
+        onUpdateShift={updateShift}
+        onUpdateShiftPosition={updateShiftPosition}
       />
 
       {pendingSwaps.length > 0 && (
@@ -109,8 +110,8 @@ export default function ManagerSchedule() {
             {pendingSwaps.map((req) => {
               const from   = users[req.fromPin];
               const to     = users[req.toPin];
-              const fromSh = schedule[req.fromPin]?.[req.fromDay];
-              const toSh   = schedule[req.toPin]?.[req.toDay];
+              const fromShs = schedule[req.fromPin]?.[req.fromDay] ?? [];
+              const toShs   = schedule[req.toPin]?.[req.toDay]   ?? [];
               return (
                 <div key={req.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -119,11 +120,11 @@ export default function ManagerSchedule() {
                     </p>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
                       <span className="px-2 py-1 bg-gray-100 rounded-lg">
-                        {from?.name.split(' ')[0]}'s {req.fromDay}: {fromSh ? fmtRange(fromSh.s, fromSh.e) : 'Off'}
+                        {from?.name.split(' ')[0]}'s {req.fromDay}: {fromShs.length ? fromShs.map((s) => fmtRange(s.s, s.e)).join(', ') : 'Off'}
                       </span>
                       <span>↔</span>
                       <span className="px-2 py-1 bg-gray-100 rounded-lg">
-                        {to?.name.split(' ')[0]}'s {req.toDay}: {toSh ? fmtRange(toSh.s, toSh.e) : 'Off'}
+                        {to?.name.split(' ')[0]}'s {req.toDay}: {toShs.length ? toShs.map((s) => fmtRange(s.s, s.e)).join(', ') : 'Off'}
                       </span>
                     </div>
                   </div>
