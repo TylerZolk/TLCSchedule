@@ -75,10 +75,10 @@ export default function CalendarGrid({
   return (
     <div className="bg-white border border-black/10 rounded-xl overflow-hidden mb-6 w-full">
       {positions.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-black/10 bg-white">
-          <span className="text-xs font-medium text-gray-400 mr-1">Positions</span>
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-black/10 bg-white overflow-x-auto">
+          <span className="text-xs font-medium text-gray-400 shrink-0">Positions</span>
           {positions.map((pos) => (
-            <span key={pos.key} className={`text-[10px] font-semibold px-2 py-1 rounded-full border ${pos.className}`}>
+            <span key={pos.key} className={`text-[10px] font-semibold px-2 py-1 rounded-full border shrink-0 ${pos.className}`}>
               {pos.label}
             </span>
           ))}
@@ -98,9 +98,9 @@ export default function CalendarGrid({
               {weekDates[i]?.getDate()}
             </div>
             {positions.length > 0 && (
-              <div className="flex flex-wrap justify-center gap-1 mt-2 px-1">
+              <div className="flex flex-nowrap justify-center gap-0.5 mt-1.5">
                 {dayPositionTotals[i].map((pos) => (
-                  <span key={pos.key} className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full border ${pos.className}`}>
+                  <span key={pos.key} className={`text-[8px] font-bold w-4 h-4 flex items-center justify-center rounded-full border ${pos.className}`}>
                     {pos.count}
                   </span>
                 ))}
@@ -176,8 +176,7 @@ export default function CalendarGrid({
                   {shifts.length === 0 && !isUnavailable && (
                     <div className="flex-1 flex flex-col items-center justify-center gap-1">
                       <span className="text-[11px] text-gray-300">Off</span>
-                      {av.open && <span className="text-[9px] text-green-600 font-medium">Open avail.</span>}
-                      {!av.open && <span className="text-[9px] text-green-600 font-medium">{fmtShort(av.start)}–{fmtShort(av.end)}</span>}
+                      <span className="text-[9px] text-green-600 font-medium">{av.open ? 'Open' : `${fmtShort(av.start)}–${fmtShort(av.end)}`}</span>
                     </div>
                   )}
 

@@ -1,9 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc *)",
-      "Bash(npm run *)",
-      "Bash(Remove-Item \"c:\\\\Users\\\\yeetf\\\\OneDrive\\\\Documents\\\\TLCSchedule\\\\TLCSchedule\\\\vercel.json\")"
+      "Bash(npx tsc *)"
     ]
   }
 }
