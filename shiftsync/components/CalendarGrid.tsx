@@ -70,7 +70,7 @@ export default function CalendarGrid({
   ) : null;
   const totalCost = dailyCosts?.reduce((a, b) => a + b, 0) ?? 0;
 
-  const colTemplate = '130px repeat(7, 90px) 50px';
+  const colTemplate = 'minmax(130px, 190px) repeat(7, minmax(90px, 1fr)) minmax(50px, 60px)';
 
   return (
     <div className="bg-white border border-black/10 rounded-xl overflow-hidden mb-6 w-full">
@@ -123,13 +123,13 @@ export default function CalendarGrid({
             style={{ gridTemplateColumns: colTemplate }}>
 
             {/* Employee info — sticky */}
-            <div className="sticky left-0 z-10 px-2 py-2 flex items-center gap-2 border-r border-black/[0.06] bg-white">
+            <div className="sticky left-0 z-10 px-3 py-3 flex items-center gap-2 border-r border-black/[0.06] bg-white">
               <div className="w-8 h-8 rounded-full bg-[#E6F1FB] text-[#0C447C] flex items-center justify-center text-xs font-semibold flex-shrink-0">
                 {initials(name)}
               </div>
               <div className="min-w-0">
-                <div className="text-xs font-medium truncate">{name.split(' ')[0]}</div>
-                <div className="text-[10px] text-gray-400 truncate">{users[p]?.position ? getPositionLabel(users[p].position) : ''} {hrs > 0 ? `${hrs}h` : ''}</div>
+                <div className="text-sm font-medium truncate">{name}</div>
+                <div className="text-xs text-gray-400 truncate">{users[p]?.position ? `${getPositionLabel(users[p].position)} · ${hrs}h` : `${hrs}h`}</div>
               </div>
             </div>
 
