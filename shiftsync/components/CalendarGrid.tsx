@@ -70,7 +70,7 @@ export default function CalendarGrid({
   ) : null;
   const totalCost = dailyCosts?.reduce((a, b) => a + b, 0) ?? 0;
 
-  const colTemplate = '190px repeat(7, 1fr) 60px';
+  const colTemplate = '130px repeat(7, 90px) 50px';
 
   return (
     <div className="bg-white border border-black/10 rounded-xl overflow-hidden mb-6 w-full">
@@ -86,11 +86,10 @@ export default function CalendarGrid({
       )}
 
       <div className="overflow-x-auto">
-      <div style={{ minWidth: '680px' }}>
 
       {/* ── Header ── */}
       <div className="grid border-b border-black/10 bg-gray-50" style={{ gridTemplateColumns: colTemplate }}>
-        <div className="px-4 py-3 text-xs font-medium text-gray-400 border-r border-black/10">Employee</div>
+        <div className="sticky left-0 z-20 px-3 py-3 text-xs font-medium text-gray-400 border-r border-black/10 bg-gray-50">Employee</div>
         {DAYS.map((d, i) => (
           <div key={d} className={`py-3 text-center border-r border-black/[0.06] ${isToday(weekDates[i]) ? 'bg-[#0D6E4F]/5' : ''}`}>
             <div className={`text-xs font-medium ${isToday(weekDates[i]) ? 'text-[#0D6E4F]' : 'text-gray-400'}`}>{d}</div>
@@ -123,16 +122,14 @@ export default function CalendarGrid({
           <div key={p} className="grid border-b border-black/[0.06] last:border-b-0 hover:bg-gray-50/50 transition-colors"
             style={{ gridTemplateColumns: colTemplate }}>
 
-            {/* Employee info */}
-            <div className="px-4 py-3 flex items-center gap-3 border-r border-black/[0.06]">
-              <div className="w-9 h-9 rounded-full bg-[#E6F1FB] text-[#0C447C] flex items-center justify-center text-xs font-semibold flex-shrink-0">
+            {/* Employee info — sticky */}
+            <div className="sticky left-0 z-10 px-2 py-2 flex items-center gap-2 border-r border-black/[0.06] bg-white">
+              <div className="w-8 h-8 rounded-full bg-[#E6F1FB] text-[#0C447C] flex items-center justify-center text-xs font-semibold flex-shrink-0">
                 {initials(name)}
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{name}</div>
-                <div className="text-xs text-gray-400">
-                  {users[p]?.position ? `${getPositionLabel(users[p].position)} · ${hrs}h` : `${hrs}h`}
-                </div>
+                <div className="text-xs font-medium truncate">{name.split(' ')[0]}</div>
+                <div className="text-[10px] text-gray-400 truncate">{users[p]?.position ? getPositionLabel(users[p].position) : ''} {hrs > 0 ? `${hrs}h` : ''}</div>
               </div>
             </div>
 
@@ -223,7 +220,6 @@ export default function CalendarGrid({
           <div className="px-3 py-2.5 text-right text-xs font-semibold text-[#0D6E4F]">${totalCost.toFixed(0)}</div>
         </div>
       )}
-      </div>
       </div>
 
       {/* ── Shift edit modal ── */}
