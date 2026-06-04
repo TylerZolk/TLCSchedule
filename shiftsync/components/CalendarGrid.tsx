@@ -98,7 +98,7 @@ export default function CalendarGrid({
               {weekDates[i]?.getDate()}
             </div>
             {positions.length > 0 && (
-              <div className="flex flex-nowrap justify-center gap-0.5 mt-1.5">
+              <div className="grid grid-cols-2 gap-0.5 mt-1.5 mx-auto w-fit">
                 {dayPositionTotals[i].map((pos) => (
                   <span key={pos.key} className={`text-[8px] font-bold w-4 h-4 flex items-center justify-center rounded-full border ${pos.className}`}>
                     {pos.count}
