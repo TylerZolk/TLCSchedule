@@ -40,12 +40,13 @@ model Availability {
 }
 
 model Shift {
-  id       Int     @id @default(autoincrement())
-  pin      Int
-  day      String
-  start    Int
-  end      Int
-  position String?
+  id        Int     @id @default(autoincrement())
+  pin       Int
+  weekStart String  @default("")
+  day       String
+  start     Int
+  end       Int
+  position  String?
 
   user User @relation(fields: [pin], references: [pin], onDelete: Cascade)
 }

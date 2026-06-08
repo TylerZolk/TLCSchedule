@@ -1,8 +1,16 @@
 'use client';
 
-import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
 import { Users, User, Availability, Schedule, Role, RestaurantKey, Shift, DayAvail, PositionKey, ShiftRequirements, ShiftSlot, SwapRequest, ComplianceWarning, ShiftPreset } from '@/types';
-import { INITIAL_USERS, DAYS, POSITIONS, buildInitialAvailability, buildInitialSchedule, buildInitialShiftRequirements, fmtRange } from '@/lib/constants';
+import { INITIAL_USERS, DAYS, POSITIONS, buildInitialAvailability, buildInitialShiftRequirements, fmtRange } from '@/lib/constants';
+
+function weekStartStr(offset: number): string {
+  const now = new Date();
+  const sun = new Date(now);
+  sun.setDate(now.getDate() - now.getDay() + offset * 7);
+  sun.setHours(0, 0, 0, 0);
+  return sun.toISOString().split('T')[0];
+}
 
 const api = (path: string, method = 'GET', body?: object) =>
   fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
@@ -56,21 +64,29 @@ const StoreContext = createContext<StoreCtx | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [users,             setUsers]             = useState<Users>(INITIAL_USERS);
   const [availability,      setAvailability]      = useState<Availability>(() => buildInitialAvailability(INITIAL_USERS));
-  const [schedule,          setSchedule]          = useState<Schedule>(() => buildInitialSchedule(INITIAL_USERS));
+  const [scheduleCache,     setScheduleCache]     = useState<Record<string, Schedule>>({});
   const [shiftRequirements, setShiftRequirements] = useState<ShiftRequirements>(buildInitialShiftRequirements);
+  const loadedWeeks = useRef<Set<string>>(new Set());
   const [swapRequests,    setSwapRequests]    = useState<Record<string, SwapRequest>>({});
   const [shiftPresets,   setShiftPresets]    = useState<Record<RestaurantKey, ShiftPreset[]>>({ tlc: [], nickys: [], farmhouse: [] });
   const [publishedSchedules, setPublishedSchedules] = useState<Partial<Record<RestaurantKey, Schedule>>>({});
   const [publishedAt,        setPublishedAt]        = useState<Partial<Record<RestaurantKey, Date>>>({});
 
-  // Load all data from the database on mount
+  const [authUser,          setAuthUser]          = useState<AuthUser | null>(null);
+  const [savedMsg,          setSavedMsg]          = useState('');
+  const [weekOffset,        setWeekOffset]        = useState(0);
+
+  const schedule: Schedule = scheduleCache[weekStartStr(weekOffset)] ?? {};
+
+  // Load all data from the database on mount (week 0)
   useEffect(() => {
-    api('/api/data').then((r) => r.json()).then((data) => {
+    const ws = weekStartStr(0);
+    loadedWeeks.current.add(ws);
+    api(`/api/data?weekStart=${ws}`).then((r) => r.json()).then((data) => {
       if (!data.users || Object.keys(data.users).length === 0) return;
       setUsers(data.users);
       setAvailability(data.availability);
-      setSchedule(data.schedule);
-      // Merge API data with initial structure so restaurant/day keys always exist
+      setScheduleCache({ [ws]: data.schedule ?? {} });
       const baseReqs = buildInitialShiftRequirements();
       const apiReqs = data.shiftRequirements ?? {};
       for (const rest of Object.keys(baseReqs) as RestaurantKey[]) {
@@ -84,11 +100,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const pa: Partial<Record<RestaurantKey, Date>> = {};
       for (const [k, v] of Object.entries(data.publishedAt ?? {})) pa[k as RestaurantKey] = new Date(v as string);
       if (Object.keys(pa).length) setPublishedAt(pa);
-    }).catch(() => {}); // fall back to in-memory if DB unavailable
+    }).catch(() => {});
   }, []);
-  const [authUser,          setAuthUser]          = useState<AuthUser | null>(null);
-  const [savedMsg,          setSavedMsg]          = useState('');
-  const [weekOffset,        setWeekOffset]        = useState(0);
+
+  // Load schedule for a week we haven't seen yet
+  useEffect(() => {
+    const ws = weekStartStr(weekOffset);
+    if (loadedWeeks.current.has(ws)) return;
+    loadedWeeks.current.add(ws);
+    api(`/api/data?weekStart=${ws}`).then((r) => r.json()).then((data) => {
+      if (data.schedule) setScheduleCache((prev) => ({ ...prev, [ws]: data.schedule }));
+    }).catch(() => {});
+  }, [weekOffset]);
 
   const flash = useCallback((msg: string) => {
     setSavedMsg(msg);
@@ -126,46 +149,50 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addShift = useCallback((pin: number, day: string) => {
+    const ws = weekStartStr(weekOffset);
     const tempId = Date.now();
     const newShift: Shift = { id: tempId, s: 18, e: 2, position: users[pin]?.position };
-    setSchedule((prev) => ({
-      ...prev,
-      [pin]: { ...prev[pin], [day]: [...(prev[pin]?.[day] ?? []), newShift] },
-    }));
-    api('/api/shifts', 'POST', { pin, day, start: newShift.s, end: newShift.e, position: newShift.position ?? null })
+    setScheduleCache((prev) => {
+      const week = prev[ws] ?? {};
+      return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: [...(week[pin]?.[day] ?? []), newShift] } } };
+    });
+    api('/api/shifts', 'POST', { pin, day, start: newShift.s, end: newShift.e, position: newShift.position ?? null, weekStart: ws })
       .then((r) => r.json()).then((data) => {
         if (data.id) {
-          setSchedule((prev) => ({
-            ...prev,
-            [pin]: { ...prev[pin], [day]: (prev[pin]?.[day] ?? []).map((sh) => sh.id === tempId ? { ...sh, id: data.id } : sh) },
-          }));
+          setScheduleCache((prev) => {
+            const week = prev[ws] ?? {};
+            return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: (week[pin]?.[day] ?? []).map((sh: Shift) => sh.id === tempId ? { ...sh, id: data.id } : sh) } } };
+          });
         }
       }).catch(() => {});
-  }, [users]);
+  }, [users, weekOffset]);
 
   const removeShift = useCallback((pin: number, day: string, shiftId: number) => {
-    setSchedule((prev) => ({
-      ...prev,
-      [pin]: { ...prev[pin], [day]: (prev[pin]?.[day] ?? []).filter((sh) => sh.id !== shiftId) },
-    }));
+    const ws = weekStartStr(weekOffset);
+    setScheduleCache((prev) => {
+      const week = prev[ws] ?? {};
+      return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: (week[pin]?.[day] ?? []).filter((sh: Shift) => sh.id !== shiftId) } } };
+    });
     api(`/api/shifts/${shiftId}`, 'DELETE');
-  }, []);
+  }, [weekOffset]);
 
   const updateShift = useCallback((pin: number, day: string, shiftId: number, field: 's' | 'e', value: number) => {
-    setSchedule((prev) => ({
-      ...prev,
-      [pin]: { ...prev[pin], [day]: (prev[pin]?.[day] ?? []).map((sh) => sh.id === shiftId ? { ...sh, [field]: value } : sh) },
-    }));
+    const ws = weekStartStr(weekOffset);
+    setScheduleCache((prev) => {
+      const week = prev[ws] ?? {};
+      return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: (week[pin]?.[day] ?? []).map((sh: Shift) => sh.id === shiftId ? { ...sh, [field]: value } : sh) } } };
+    });
     api(`/api/shifts/${shiftId}`, 'PUT', { [field === 's' ? 'start' : 'end']: value });
-  }, []);
+  }, [weekOffset]);
 
   const updateShiftPosition = useCallback((pin: number, day: string, shiftId: number, position: PositionKey) => {
-    setSchedule((prev) => ({
-      ...prev,
-      [pin]: { ...prev[pin], [day]: (prev[pin]?.[day] ?? []).map((sh) => sh.id === shiftId ? { ...sh, position } : sh) },
-    }));
+    const ws = weekStartStr(weekOffset);
+    setScheduleCache((prev) => {
+      const week = prev[ws] ?? {};
+      return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: (week[pin]?.[day] ?? []).map((sh: Shift) => sh.id === shiftId ? { ...sh, position } : sh) } } };
+    });
     api(`/api/shifts/${shiftId}`, 'PUT', { position });
-  }, []);
+  }, [weekOffset]);
 
   const validateCredentials = useCallback((pin: number, role: Role, username?: string, password?: string, originalPin?: number): string | null => {
     if (role === 'employee') return null;
@@ -198,13 +225,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       DAYS.forEach((d) => { map[d] = { unavailable: true, open: false, start: 9, end: 17 }; });
       return { ...prev, [pin]: map };
     });
-    setSchedule((prev) => {
+    setScheduleCache((prev) => {
+      const ws = weekStartStr(weekOffset);
       const map: { [d: string]: Shift[] } = {};
       DAYS.forEach((d) => { map[d] = []; });
-      return { ...prev, [pin]: map };
+      return { ...prev, [ws]: { ...(prev[ws] ?? {}), [pin]: map } };
     });
     return null;
-  }, [users, validateCredentials]);
+  }, [users, validateCredentials, weekOffset]);
 
   const editUser = useCallback((origPin: number, newPin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean): string | null => {
     if (!name.trim())                                 return 'Name is required.';
@@ -226,13 +254,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     api(`/api/users/${origPin}`, 'PUT', updatedUser);
     if (newPin !== origPin) {
       setAvailability((prev) => { const n = { ...prev, [newPin]: prev[origPin] ?? {} }; delete n[origPin]; return n; });
-      setSchedule((prev)     => { const n = { ...prev, [newPin]: prev[origPin] ?? {} }; delete n[origPin]; return n; });
-    } else {
-      setSchedule((prev) => {
-        if (prev[newPin]) return prev;
-        const map: { [d: string]: Shift[] } = {};
-        DAYS.forEach((d) => { map[d] = []; });
-        return { ...prev, [newPin]: map };
+      setScheduleCache((prev) => {
+        const next: Record<string, Schedule> = {};
+        for (const [ws, week] of Object.entries(prev)) {
+          const w = { ...week, [newPin]: week[origPin] ?? {} } as Schedule;
+          delete w[origPin];
+          next[ws] = w;
+        }
+        return next;
       });
     }
     return null;
@@ -241,7 +270,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const deleteUser = useCallback((pin: number) => {
     setUsers((prev)        => { const n = { ...prev }; delete n[pin]; return n; });
     setAvailability((prev) => { const n = { ...prev }; delete n[pin]; return n; });
-    setSchedule((prev)     => { const n = { ...prev }; delete n[pin]; return n; });
+    setScheduleCache((prev) => {
+      const next: Record<string, Schedule> = {};
+      for (const [ws, week] of Object.entries(prev)) {
+        const w = { ...week } as Schedule;
+        delete w[pin];
+        next[ws] = w;
+      }
+      return next;
+    });
     api(`/api/users/${pin}`, 'DELETE');
   }, []);
 
@@ -280,9 +317,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .map(([p]) => Number(p));
     const clearedShifts: Record<number, Record<string, Shift[]>> = {};
     staffPins.forEach((pin) => { clearedShifts[pin] = {}; DAYS.forEach((d) => { clearedShifts[pin][d] = []; }); });
-    setSchedule((prev) => ({ ...prev, ...clearedShifts }));
-    api('/api/shifts/bulk', 'POST', { pins: staffPins, shifts: clearedShifts });
-  }, [users]);
+    const ws = weekStartStr(weekOffset);
+    setScheduleCache((prev) => ({ ...prev, [ws]: { ...(prev[ws] ?? {}), ...clearedShifts } }));
+    api('/api/shifts/bulk', 'POST', { pins: staffPins, shifts: clearedShifts, weekStart: ws });
+  }, [users, weekOffset]);
 
   const publishSchedule = useCallback((restaurant: RestaurantKey) => {
     const pins = Object.entries(users)
@@ -402,16 +440,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const req = prev[id];
       if (!req) return prev;
       if (approve) {
-        setSchedule((s) => {
-          const fromShifts = s[req.fromPin]?.[req.fromDay] ?? [];
-          const toShifts   = s[req.toPin]?.[req.toDay]   ?? [];
-          return { ...s, [req.fromPin]: { ...s[req.fromPin], [req.fromDay]: toShifts }, [req.toPin]: { ...s[req.toPin], [req.toDay]: fromShifts } };
+        const ws = weekStartStr(weekOffset);
+        setScheduleCache((cache) => {
+          const week = cache[ws] ?? {};
+          const fromShifts = week[req.fromPin]?.[req.fromDay] ?? [];
+          const toShifts   = week[req.toPin]?.[req.toDay]   ?? [];
+          return { ...cache, [ws]: { ...week, [req.fromPin]: { ...week[req.fromPin], [req.fromDay]: toShifts }, [req.toPin]: { ...week[req.toPin], [req.toDay]: fromShifts } } };
         });
       }
       return { ...prev, [id]: { ...req, status } };
     });
     api(`/api/swap-requests/${id}`, 'PUT', { status, swapShifts: approve });
-  }, []);
+  }, [weekOffset]);
 
   const addShiftSlot = useCallback((restaurant: RestaurantKey, day: string, position: PositionKey) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -487,20 +527,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    setSchedule((prev) => {
-      const next = { ...prev };
-      for (const [pinStr] of staff) {
-        const pin = Number(pinStr);
-        next[pin] = newShifts[pin];
-      }
-      return next;
+    const ws = weekStartStr(weekOffset);
+    setScheduleCache((prev) => {
+      const week = { ...(prev[ws] ?? {}) };
+      for (const [pinStr] of staff) { week[Number(pinStr)] = newShifts[Number(pinStr)]; }
+      return { ...prev, [ws]: week };
     });
 
     const pins = staff.map(([p]) => Number(p));
-    api('/api/shifts/bulk', 'POST', { pins, shifts: newShifts });
+    api('/api/shifts/bulk', 'POST', { pins, shifts: newShifts, weekStart: ws });
 
     return warnings;
-  }, [shiftRequirements, availability, users]);
+  }, [shiftRequirements, availability, users, weekOffset]);
 
   return (
     <StoreContext.Provider value={{

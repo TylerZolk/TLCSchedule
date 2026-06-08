@@ -2,11 +2,12 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { DAYS } from '@/lib/constants';
 
-export async function GET() {
+export async function GET(req: Request) {
+  const weekStart = new URL(req.url).searchParams.get('weekStart') ?? '';
   const [users, availability, shifts, shiftSlots, swapRequests, publishedAts, shiftPresets] = await Promise.all([
     prisma.user.findMany(),
     prisma.availability.findMany(),
-    prisma.shift.findMany(),
+    prisma.shift.findMany({ where: { weekStart } }),
     prisma.shiftSlot.findMany(),
     prisma.swapRequest.findMany(),
     prisma.publishedAt.findMany(),
