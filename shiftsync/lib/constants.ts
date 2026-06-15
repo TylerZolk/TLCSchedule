@@ -2,14 +2,17 @@ import { Users, Availability, Schedule, Restaurants, Shift, PositionKey, Restaur
 
 export const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-export const HOURS: { value: number; label: string }[] = Array.from({ length: 24 }, (_, h) => ({
-  value: h,
-  label:
-    h === 0  ? '12:00 AM'
-    : h < 12 ? `${h}:00 AM`
-    : h === 12 ? '12:00 PM'
-    : `${h - 12}:00 PM`,
-}));
+export const HOURS: { value: number; label: string }[] = Array.from({ length: 48 }, (_, i) => {
+  const v = i / 2;
+  const hr = Math.floor(v);
+  const mins = v % 1 === 0.5 ? ':30' : ':00';
+  let label: string;
+  if (hr === 0)       label = `12${mins} AM`;
+  else if (hr < 12)   label = `${hr}${mins} AM`;
+  else if (hr === 12) label = `12${mins} PM`;
+  else                label = `${hr - 12}${mins} PM`;
+  return { value: v, label };
+});
 
 export const RESTAURANTS: Restaurants = {
   tlc:       { name: 'TLC',       badgeClass: 'badge-tlc' },
@@ -40,20 +43,24 @@ export function positionColorClass(position?: PositionKey): string {
   return POSITIONS.tlc.find((p) => p.key === position)?.className ?? shiftColorClass(12);
 }
 
-/** "6:00am", "2:00pm" */
+/** "6:00am", "6:30am", "2:00pm" */
 export function fmtHour(h: number): string {
-  if (h === 0)  return '12:00am';
-  if (h < 12)   return `${h}:00am`;
-  if (h === 12) return '12:00pm';
-  return `${h - 12}:00pm`;
+  const hr = Math.floor(h);
+  const mins = h % 1 === 0.5 ? ':30' : ':00';
+  if (hr === 0)  return `12${mins}am`;
+  if (hr < 12)   return `${hr}${mins}am`;
+  if (hr === 12) return `12${mins}pm`;
+  return `${hr - 12}${mins}pm`;
 }
 
-/** "6a", "2p" */
+/** "6a", "6:30a", "2p" */
 export function fmtShort(h: number): string {
-  if (h === 0)  return '12a';
-  if (h < 12)   return `${h}a`;
-  if (h === 12) return '12p';
-  return `${h - 12}p`;
+  const hr = Math.floor(h);
+  const mins = h % 1 === 0.5 ? ':30' : '';
+  if (hr === 0)  return `12${mins}a`;
+  if (hr < 12)   return `${hr}${mins}a`;
+  if (hr === 12) return `12${mins}p`;
+  return `${hr - 12}${mins}p`;
 }
 
 export function fmtRange(start: number, end: number): string {

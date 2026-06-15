@@ -31,8 +31,8 @@ model Availability {
   day         String
   unavailable Boolean @default(true)
   open        Boolean @default(false)
-  start       Int     @default(9)
-  end         Int     @default(17)
+  start       Float   @default(9)
+  end         Float   @default(17)
 
   user User @relation(fields: [pin], references: [pin], onDelete: Cascade)
 
@@ -44,8 +44,8 @@ model Shift {
   pin       Int
   weekStart String  @default("")
   day       String
-  start     Int
-  end       Int
+  start     Float
+  end       Float
   position  String?
 
   user User @relation(fields: [pin], references: [pin], onDelete: Cascade)
@@ -56,8 +56,8 @@ model ShiftSlot {
   restaurant String
   day        String
   position   String
-  start      Int
-  end        Int
+  start      Float
+  end        Float
   count      Int    @default(1)
 }
 
@@ -83,7 +83,7 @@ model ShiftPreset {
   id         Int     @id @default(autoincrement())
   restaurant String
   name       String
-  start      Int
-  end        Int
+  start      Float
+  end        Float
   position   String?
 }
