@@ -1,17 +1,35 @@
 'use client';
 
+import { useState } from 'react';
 import { useStore } from '@/lib/store';
-import { DAYS, fmtShort, initials } from '@/lib/constants';
+import { DAYS, RESTAURANTS, fmtShort, initials } from '@/lib/constants';
 import { SectionHeader } from '@/components/SectionHeader';
+import { RestaurantKey } from '@/types';
 
 export default function TeamAvailability() {
   const { authUser, users, availability, getEmployees } = useStore();
-  const empPins = getEmployees(authUser!.restaurant!).map(([p]) => Number(p));
+  const isOwner = authUser!.role === 'owner';
+  const [ownerRestaurant, setOwnerRestaurant] = useState<RestaurantKey>('tlc');
+  const restaurant = isOwner ? ownerRestaurant : authUser!.restaurant! as RestaurantKey;
+  const empPins = getEmployees(restaurant).map(([p]) => Number(p));
   const col = '190px repeat(7, 1fr)';
 
   return (
     <>
       <SectionHeader title="Team availability" sub="Hours each employee submitted as available — use this when building the schedule" />
+
+      {isOwner && (
+        <div className="flex gap-2 mb-5">
+          {Object.entries(RESTAURANTS).map(([rk, r]) => (
+            <button key={rk} onClick={() => setOwnerRestaurant(rk as RestaurantKey)}
+              className={`text-sm px-4 py-1.5 rounded-full font-medium transition-all ${
+                ownerRestaurant === rk ? r.badgeClass : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}>
+              {r.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="bg-white border border-black/10 rounded-xl overflow-hidden mb-6">
         <div className="overflow-x-auto">

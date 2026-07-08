@@ -65,7 +65,7 @@ export default function MyAvailability() {
                   <div>
                     <p className="text-xs text-gray-400 mb-1.5">From</p>
                     <select value={av.start}
-                      onChange={(e) => setAvailDay(pin, d, 'start', parseInt(e.target.value))}
+                      onChange={(e) => setAvailDay(pin, d, 'start', Number(e.target.value))}
                       className="w-full text-sm py-2 px-3 rounded-xl border border-black/10 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0D6E4F]/20">
                       {HOURS.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
                     </select>
@@ -73,7 +73,7 @@ export default function MyAvailability() {
                   <div>
                     <p className="text-xs text-gray-400 mb-1.5">Until</p>
                     <select value={av.end}
-                      onChange={(e) => setAvailDay(pin, d, 'end', parseInt(e.target.value))}
+                      onChange={(e) => setAvailDay(pin, d, 'end', Number(e.target.value))}
                       className="w-full text-sm py-2 px-3 rounded-xl border border-black/10 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0D6E4F]/20">
                       {[...HOURS.filter((h) => h.value >= 7), ...HOURS.filter((h) => h.value <= 6)]
                         .map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}

@@ -18,7 +18,7 @@ import OwnerOverview   from '@/components/tabs/OwnerOverview';
 import OwnerSchedule   from '@/components/tabs/OwnerSchedule';
 import AllSchedules    from '@/components/tabs/AllSchedules';
 
-type TabId = 'my-schedule' | 'my-avail' | 'team-schedule' | 'mgr-schedule' | 'team-avail' | 'shift-template' | 'shift-presets' | 'staff' | 'overview' | 'build-schedule' | 'all-schedules' | 'all-staff';
+type TabId = 'my-schedule' | 'my-avail' | 'team-schedule' | 'mgr-schedule' | 'team-avail' | 'shift-template' | 'shift-presets' | 'staff' | 'overview' | 'build-schedule' | 'all-schedules' | 'all-staff' | 'owner-avail' | 'owner-template' | 'owner-presets';
 interface TabDef { id: TabId; label: string; }
 
 function getTabs(role: string): TabDef[] {
@@ -38,6 +38,9 @@ function getTabs(role: string): TabDef[] {
     { id: 'overview',        label: 'Overview' },
     { id: 'build-schedule',  label: 'Build Schedule' },
     { id: 'all-schedules',   label: 'All Schedules' },
+    { id: 'owner-avail',     label: 'Team Availability' },
+    { id: 'owner-template',  label: 'Shift Template' },
+    { id: 'owner-presets',   label: 'Shift Presets' },
     { id: 'all-staff',       label: 'All Staff' },
   ];
 }
@@ -76,6 +79,9 @@ export default function AppShell() {
         {active === 'overview'        && <OwnerOverview />}
         {active === 'build-schedule'  && <OwnerSchedule />}
         {active === 'all-schedules'   && <AllSchedules />}
+        {active === 'owner-avail'     && <TeamAvailability />}
+        {active === 'owner-template'  && <ShiftTemplate />}
+        {active === 'owner-presets'   && <ShiftPresets />}
         {active === 'all-staff'    && (
           <div className="space-y-10">
             {Object.keys(RESTAURANTS).map((rk) => (

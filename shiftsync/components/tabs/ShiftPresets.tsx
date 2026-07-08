@@ -8,7 +8,9 @@ import { RestaurantKey, PositionKey } from '@/types';
 
 export default function ShiftPresets() {
   const { authUser, shiftPresets, addShiftPreset, removeShiftPreset } = useStore();
-  const restaurant = authUser!.restaurant! as RestaurantKey;
+  const isOwner = authUser!.role === 'owner';
+  const [ownerRestaurant, setOwnerRestaurant] = useState<RestaurantKey>('tlc');
+  const restaurant = isOwner ? ownerRestaurant : authUser!.restaurant! as RestaurantKey;
   const positions  = getPositionsForRestaurant(restaurant);
   const presets    = shiftPresets[restaurant] ?? [];
 
@@ -32,6 +34,19 @@ export default function ShiftPresets() {
         title={`${RESTAURANTS[restaurant].name} — Shift Presets`}
         sub="Define common shift times for quick selection when building the schedule"
       />
+
+      {isOwner && (
+        <div className="flex gap-2 mb-5">
+          {Object.entries(RESTAURANTS).map(([rk, r]) => (
+            <button key={rk} onClick={() => setOwnerRestaurant(rk as RestaurantKey)}
+              className={`text-sm px-4 py-1.5 rounded-full font-medium transition-all ${
+                ownerRestaurant === rk ? r.badgeClass : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}>
+              {r.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Add form */}
       <div className="bg-white border border-black/10 rounded-xl p-5 mb-5">

@@ -27,14 +27,17 @@ export async function GET(req: Request) {
     };
   }
 
-  // Shape availability
+  // Shape availability — Nicky's and Farmhouse always default to nothing (all unavailable)
+  const tlcPins = new Set(users.filter((u) => u.restaurant === 'tlc').map((u) => u.pin));
   const availMap: Record<number, Record<string, object>> = {};
   for (const u of users) {
     availMap[u.pin] = {};
     for (const d of DAYS) availMap[u.pin][d] = { unavailable: true, open: false, start: 9, end: 17 };
   }
   for (const a of availability) {
-    if (availMap[a.pin]) availMap[a.pin][a.day] = { unavailable: a.unavailable, open: a.open, start: a.start, end: a.end };
+    if (tlcPins.has(a.pin) && availMap[a.pin]) {
+      availMap[a.pin][a.day] = { unavailable: a.unavailable, open: a.open, start: a.start, end: a.end };
+    }
   }
 
   // Shape schedule — multiple shifts per day as array

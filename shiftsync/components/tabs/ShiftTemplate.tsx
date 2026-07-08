@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useStore } from '@/lib/store';
 import { DAYS, HOURS, RESTAURANTS, getPositionsForRestaurant } from '@/lib/constants';
 import { SectionHeader } from '@/components/SectionHeader';
@@ -7,7 +8,9 @@ import { RestaurantKey, PositionKey } from '@/types';
 
 export default function ShiftTemplate() {
   const { authUser, shiftRequirements, addShiftSlot, updateShiftSlot, removeShiftSlot } = useStore();
-  const restaurant = authUser!.restaurant! as RestaurantKey;
+  const isOwner = authUser!.role === 'owner';
+  const [ownerRestaurant, setOwnerRestaurant] = useState<RestaurantKey>('tlc');
+  const restaurant = isOwner ? ownerRestaurant : authUser!.restaurant! as RestaurantKey;
   const positions = getPositionsForRestaurant(restaurant);
   const reqs = shiftRequirements[restaurant];
 
@@ -27,6 +30,19 @@ export default function ShiftTemplate() {
         title={`${RESTAURANTS[restaurant].name} — Shift Template`}
         sub="Define required staffing per shift. The auto-scheduler uses this to fill the schedule."
       />
+
+      {isOwner && (
+        <div className="flex gap-2 mb-5">
+          {Object.entries(RESTAURANTS).map(([rk, r]) => (
+            <button key={rk} onClick={() => setOwnerRestaurant(rk as RestaurantKey)}
+              className={`text-sm px-4 py-1.5 rounded-full font-medium transition-all ${
+                ownerRestaurant === rk ? r.badgeClass : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}>
+              {r.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="space-y-4">
         {DAYS.map((day) => (
