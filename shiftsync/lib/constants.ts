@@ -24,23 +24,30 @@ export const POSITIONS: Record<RestaurantKey, { key: PositionKey; label: string;
   tlc: [
     { key: 'manager',   label: 'Manager',   className: 'position-manager' },
     { key: 'bartender', label: 'Bartender', className: 'position-bartender' },
-    { key: 'barback',  label: 'Barback',  className: 'position-barback' },
-    { key: 'bouncer',  label: 'Bouncer',  className: 'position-bouncer' },
+    { key: 'barback',   label: 'Barback',   className: 'position-barback' },
+    { key: 'bouncer',   label: 'Bouncer',   className: 'position-bouncer' },
   ],
   nickys: [],
-  farmhouse: [],
+  farmhouse: [
+    { key: 'manager',   label: 'Manager',   className: 'position-manager' },
+    { key: 'kitchen',   label: 'Kitchen',   className: 'position-kitchen' },
+    { key: 'server',    label: 'Server',    className: 'position-server' },
+    { key: 'bartender', label: 'Bartender', className: 'position-bartender' },
+  ],
 };
 
 export function getPositionsForRestaurant(restaurant?: RestaurantKey | null) {
   return restaurant ? POSITIONS[restaurant] : [];
 }
 
+const ALL_POSITIONS = Object.values(POSITIONS).flat();
+
 export function getPositionLabel(position?: PositionKey): string {
-  return POSITIONS.tlc.find((p) => p.key === position)?.label ?? 'Shift';
+  return ALL_POSITIONS.find((p) => p.key === position)?.label ?? 'Shift';
 }
 
 export function positionColorClass(position?: PositionKey): string {
-  return POSITIONS.tlc.find((p) => p.key === position)?.className ?? shiftColorClass(12);
+  return ALL_POSITIONS.find((p) => p.key === position)?.className ?? shiftColorClass(12);
 }
 
 /** "6:00am", "6:30am", "2:00pm" */

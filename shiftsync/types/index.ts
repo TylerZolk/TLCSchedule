@@ -1,6 +1,6 @@
 export type Role = 'employee' | 'manager' | 'owner';
 export type RestaurantKey = 'tlc' | 'nickys' | 'farmhouse';
-export type PositionKey = 'manager' | 'bartender' | 'barback' | 'bouncer';
+export type PositionKey = 'manager' | 'bartender' | 'barback' | 'bouncer' | 'kitchen' | 'server';
 
 export interface User {
   name: string;

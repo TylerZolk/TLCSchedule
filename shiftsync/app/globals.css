@@ -23,8 +23,10 @@ body {
 .shift-mid     { background: #FFF8E1; border-color: #FFD54F; color: #5D4037; }
 .shift-evening { background: #E3F2FD; border-color: #64B5F6; color: #0D47A1; }
 
-/* TLC shift positions */
-.position-manager  { background: #FFF3E0; border-color: #FFB74D; color: #7A3E00; }
+/* Shift positions */
+.position-manager   { background: #FFF3E0; border-color: #FFB74D; color: #7A3E00; }
 .position-bartender { background: #FCE4EC; border-color: #EC407A; color: #880E4F; }
-.position-barback  { background: #E8F5E9; border-color: #66BB6A; color: #1B5E20; }
-.position-bouncer  { background: #E3F2FD; border-color: #42A5F5; color: #0D47A1; }
+.position-barback   { background: #E8F5E9; border-color: #66BB6A; color: #1B5E20; }
+.position-bouncer   { background: #E3F2FD; border-color: #42A5F5; color: #0D47A1; }
+.position-kitchen   { background: #FBE9E7; border-color: #FF7043; color: #BF360C; }
+.position-server    { background: #F3E5F5; border-color: #AB47BC; color: #4A148C; }
