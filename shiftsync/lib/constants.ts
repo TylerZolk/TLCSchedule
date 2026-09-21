@@ -26,6 +26,7 @@ export const POSITIONS: Record<RestaurantKey, { key: PositionKey; label: string;
     { key: 'bartender', label: 'Bartender', className: 'position-bartender' },
     { key: 'barback',   label: 'Barback',   className: 'position-barback' },
     { key: 'bouncer',   label: 'Bouncer',   className: 'position-bouncer' },
+    
   ],
   nickys: [],
   farmhouse: [
@@ -175,7 +176,7 @@ export function buildInitialShiftRequirements(): ShiftRequirements {
 export function buildInitialSchedule(users: Users): Schedule {
   const s: Schedule = {};
   Object.entries(users).forEach(([p, u]) => {
-    if (u.role === 'employee' || u.role === 'manager') {
+    if (u.role === 'employee' || u.role === 'on_call' || u.role === 'manager') {
       s[Number(p)] = {};
       DAYS.forEach((d) => { s[Number(p)][d] = []; });
     }

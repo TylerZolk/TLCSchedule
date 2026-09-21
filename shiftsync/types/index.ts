@@ -1,4 +1,4 @@
-export type Role = 'employee' | 'manager' | 'owner';
+export type Role = 'employee' | 'on_call' | 'manager' | 'owner';
 export type RestaurantKey = 'tlc' | 'nickys' | 'farmhouse';
 export type PositionKey = 'manager' | 'bartender' | 'barback' | 'bouncer' | 'kitchen' | 'server';
 

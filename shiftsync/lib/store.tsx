@@ -61,6 +61,9 @@ interface StoreCtx {
 
 const StoreContext = createContext<StoreCtx | null>(null);
 
+const isStaffRole = (role?: Role) => role === 'employee' || role === 'on_call';
+const isManagerRole = (role?: Role) => role === 'manager' || role === 'owner';
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [users,             setUsers]             = useState<Users>(INITIAL_USERS);
   const [availability,      setAvailability]      = useState<Availability>(() => buildInitialAvailability(INITIAL_USERS));
@@ -120,7 +123,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback((pin: number): boolean => {
     const u = users[pin];
-    if (!u || u.role !== 'employee') return false;
+    if (!u || !isStaffRole(u.role)) return false;
     setAuthUser({ ...u, pin });
     return true;
   }, [users]);
@@ -128,7 +131,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loginWithCredentials = useCallback((username: string, password: string): boolean => {
     const normalized = username.trim().toLowerCase();
     const found = Object.entries(users).find(([, u]) =>
-      u.role !== 'employee' &&
+      isManagerRole(u.role) &&
       u.username?.toLowerCase() === normalized &&
       u.password === password
     );
@@ -195,13 +198,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [weekOffset]);
 
   const validateCredentials = useCallback((pin: number, role: Role, username?: string, password?: string, originalPin?: number): string | null => {
-    if (role === 'employee') return null;
+    if (isStaffRole(role)) return null;
     const trimmedUsername = username?.trim() ?? '';
     if (!trimmedUsername) return 'Username is required for managers.';
     if (!password?.trim()) return 'Password is required for managers.';
     const usernameTaken = Object.entries(users).some(([p, u]) =>
       Number(p) !== (originalPin ?? pin) &&
-      u.role !== 'employee' &&
+      isManagerRole(u.role) &&
       u.username?.toLowerCase() === trimmedUsername.toLowerCase()
     );
     return usernameTaken ? 'Username already in use.' : null;
@@ -216,7 +219,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const newUser = {
       name: name.trim(), role, restaurant,
       ...(position ? { position } : {}), ...(wage ? { wage } : {}), ...(isMinor ? { isMinor: true } : {}),
-      ...(role !== 'employee' ? { username: username!.trim(), password: password!.trim() } : {}),
+      ...(!isStaffRole(role) ? { username: username!.trim(), password: password!.trim() } : {}),
     };
     setUsers((prev) => ({ ...prev, [pin]: newUser }));
     api('/api/users', 'POST', { pin, ...newUser });
@@ -243,7 +246,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const updatedUser = {
       pin: newPin, name: name.trim(), role, restaurant,
       ...(position ? { position } : {}), ...(wage ? { wage } : {}), ...(isMinor ? { isMinor: true } : {}),
-      ...(role !== 'employee' ? { username: username!.trim(), password: password!.trim() } : {}),
+      ...(!isStaffRole(role) ? { username: username!.trim(), password: password!.trim() } : {}),
     };
     setUsers((prev) => {
       const n = { ...prev };
@@ -283,7 +286,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const getEmployees = useCallback((restaurant: string): [string, User][] =>
-    Object.entries(users).filter(([, u]) => u.restaurant === restaurant && u.role === 'employee'),
+    Object.entries(users).filter(([, u]) => u.restaurant === restaurant && isStaffRole(u.role)),
   [users]);
 
   const getManagers = useCallback((restaurant: string): [string, User][] =>
@@ -293,7 +296,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const getSchedulableStaff = useCallback((restaurant: string): [string, User][] => {
     const posOrder = POSITIONS[restaurant as RestaurantKey]?.map((p) => p.key) ?? [];
     return Object.entries(users)
-      .filter(([, u]) => u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager'))
+      .filter(([, u]) => u.restaurant === restaurant && (isStaffRole(u.role) || u.role === 'manager'))
       .sort(([, a], [, b]) => {
         const ai = a.position ? posOrder.indexOf(a.position) : posOrder.length;
         const bi = b.position ? posOrder.indexOf(b.position) : posOrder.length;
@@ -313,7 +316,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const clearSchedule = useCallback((restaurant: RestaurantKey) => {
     const staffPins = Object.entries(users)
-      .filter(([, u]) => u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager'))
+      .filter(([, u]) => u.restaurant === restaurant && (isStaffRole(u.role) || u.role === 'manager'))
       .map(([p]) => Number(p));
     const clearedShifts: Record<number, Record<string, Shift[]>> = {};
     staffPins.forEach((pin) => { clearedShifts[pin] = {}; DAYS.forEach((d) => { clearedShifts[pin][d] = []; }); });
@@ -324,7 +327,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const publishSchedule = useCallback((restaurant: RestaurantKey) => {
     const pins = Object.entries(users)
-      .filter(([, u]) => u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager'))
+      .filter(([, u]) => u.restaurant === restaurant && (isStaffRole(u.role) || u.role === 'manager'))
       .map(([p]) => Number(p));
     setPublishedSchedules((prev) => ({
       ...prev,
@@ -337,7 +340,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const getComplianceWarnings = useCallback((restaurant: RestaurantKey): ComplianceWarning[] => {
     const warnings: ComplianceWarning[] = [];
     const staff = Object.entries(users).filter(([, u]) =>
-      u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager')
+      u.restaurant === restaurant && (isStaffRole(u.role) || u.role === 'manager')
     );
     const published = publishedSchedules[restaurant];
 
@@ -484,7 +487,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const warnings: string[] = [];
     const reqs = shiftRequirements[restaurant];
     const staff = Object.entries(users).filter(([, u]) =>
-      u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager')
+      u.restaurant === restaurant && (isStaffRole(u.role) || u.role === 'manager')
     );
 
     const newShifts: Record<number, Record<string, Shift[]>> = {};
