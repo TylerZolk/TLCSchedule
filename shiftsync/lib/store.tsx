@@ -61,7 +61,7 @@ interface StoreCtx {
 
 const StoreContext = createContext<StoreCtx | null>(null);
 
-const isStaffRole = (role?: Role) => role === 'employee' || role === 'on_call';
+const isStaffRole = (role?: Role) => role === 'employee';
 const isManagerRole = (role?: Role) => role === 'manager' || role === 'owner';
 
 export function StoreProvider({ children }: { children: ReactNode }) {

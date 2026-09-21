@@ -15,7 +15,7 @@ export default function Topbar() {
         {rest && (
           <span className={`text-xs font-medium px-3 py-1 rounded-full shrink-0 ${rest.badgeClass}`}>{rest.name}</span>
         )}
-        <span className="hidden sm:inline text-xs px-2 py-1 rounded-full border border-black/10 text-gray-400 uppercase">{authUser.role === 'on_call' ? 'ON CALL' : authUser.role}</span>
+        <span className="hidden sm:inline text-xs px-2 py-1 rounded-full border border-black/10 text-gray-400 uppercase">{authUser.role}</span>
         <span className="hidden sm:inline text-sm font-medium truncate">{authUser.name}</span>
       </div>
       <button onClick={logout}

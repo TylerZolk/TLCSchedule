@@ -27,7 +27,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
   const [formErr, setFormErr] = useState('');
 
   const staff = Object.entries(users).filter(
-    ([, u]) => u.restaurant === restaurant && (u.role === 'employee' || u.role === 'on_call' || u.role === 'manager')
+    ([, u]) => u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager')
   );
   const canManage = authUser?.role === 'owner' || authUser?.restaurant === restaurant;
 
@@ -103,7 +103,6 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
               <select value={form.role} onChange={(e) => setForm((f) => f && ({ ...f, role: e.target.value as Role }))}
                 className="w-full text-sm px-3 py-2 rounded-lg border border-black/10 bg-white focus:outline-none">
                 <option value="employee">Employee</option>
-                <option value="on_call">ON CALL</option>
                 <option value="manager">Manager</option>
               </select>
             </div>
@@ -198,7 +197,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
                     <span className="font-mono text-xs px-2 py-0.5 rounded-full bg-gray-50 border border-black/10 text-gray-400">{p}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-50 border border-black/10 text-gray-400 uppercase">{u.role === 'on_call' ? 'ON CALL' : u.role}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-50 border border-black/10 text-gray-400 uppercase">{u.role}</span>
                   </td>
                   <td className="px-4 py-3 text-xs text-gray-400">{u.position ? getPositionLabel(u.position) : '—'}</td>
                   <td className="px-4 py-3 text-xs text-gray-400">

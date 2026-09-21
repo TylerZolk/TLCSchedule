@@ -43,7 +43,7 @@ export async function GET(req: Request) {
   // Shape schedule — multiple shifts per day as array
   const scheduleMap: Record<number, Record<string, object[]>> = {};
   for (const u of users) {
-    if (u.role === 'employee' || u.role === 'on_call' || u.role === 'manager') {
+    if (u.role === 'employee' || u.role === 'manager') {
       scheduleMap[u.pin] = {};
       for (const d of DAYS) scheduleMap[u.pin][d] = [];
     }

@@ -26,7 +26,7 @@ export const POSITIONS: Record<RestaurantKey, { key: PositionKey; label: string;
     { key: 'bartender', label: 'Bartender', className: 'position-bartender' },
     { key: 'barback',   label: 'Barback',   className: 'position-barback' },
     { key: 'bouncer',   label: 'Bouncer',   className: 'position-bouncer' },
-    
+    { key: 'on_call',   label: 'On Call',   className: 'position-on-call' },
   ],
   nickys: [],
   farmhouse: [
@@ -34,6 +34,7 @@ export const POSITIONS: Record<RestaurantKey, { key: PositionKey; label: string;
     { key: 'kitchen',   label: 'Kitchen',   className: 'position-kitchen' },
     { key: 'server',    label: 'Server',    className: 'position-server' },
     { key: 'bartender', label: 'Bartender', className: 'position-bartender' },
+    { key: 'on_call',   label: 'On Call',   className: 'position-on-call' },
   ],
 };
 
@@ -176,7 +177,7 @@ export function buildInitialShiftRequirements(): ShiftRequirements {
 export function buildInitialSchedule(users: Users): Schedule {
   const s: Schedule = {};
   Object.entries(users).forEach(([p, u]) => {
-    if (u.role === 'employee' || u.role === 'on_call' || u.role === 'manager') {
+    if (u.role === 'employee' || u.role === 'manager') {
       s[Number(p)] = {};
       DAYS.forEach((d) => { s[Number(p)][d] = []; });
     }

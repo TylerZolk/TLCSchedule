@@ -22,7 +22,7 @@ type TabId = 'my-schedule' | 'my-avail' | 'team-schedule' | 'mgr-schedule' | 'te
 interface TabDef { id: TabId; label: string; }
 
 function getTabs(role: string): TabDef[] {
-  if (role === 'employee' || role === 'on_call') return [
+  if (role === 'employee') return [
     { id: 'my-schedule',   label: 'My Schedule' },
     { id: 'team-schedule', label: 'Team Schedule' },
     { id: 'my-avail',      label: 'My Availability' },
