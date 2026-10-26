@@ -1,4 +1,4 @@
-import { Users, Availability, Schedule, Restaurants, Shift, PositionKey, RestaurantKey, ShiftRequirements } from '@/types'; // Shift used by buildLaborSummary
+import { Users, Schedule, Restaurants, Shift, PositionKey, RestaurantKey, ShiftRequirements } from '@/types';
 
 export const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -104,24 +104,15 @@ export function getWeekDates(offset = 0): Date[] {
   });
 }
 
+export function getWeekDatesFor(weekStart: string): Date[] {
+  const [y, m, d] = weekStart.split('-').map(Number);
+  return DAYS.map((_, i) => new Date(y, m - 1, d + i));
+}
+
 export function weekLabel(dates: Date[]): string {
   const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return `${fmt(dates[0])} – ${fmt(dates[6])}`;
 }
-
-// ─── Initial data ─────────────────────────────────────────────────────────────
-
-export const INITIAL_USERS: Users = {};
-
-export function buildInitialAvailability(users: Users): Availability {
-  const av: Availability = {};
-  Object.keys(users).forEach((p) => {
-    av[Number(p)] = {};
-    DAYS.forEach((d) => { av[Number(p)][d] = { unavailable: true, open: false, start: 9, end: 17 }; });
-  });
-  return av;
-}
-
 
 export interface LaborSummary {
   totalCost: number;
@@ -172,15 +163,4 @@ export function buildInitialShiftRequirements(): ShiftRequirements {
     DAYS.forEach((d) => { reqs[rest][d] = {}; });
   }
   return reqs;
-}
-
-export function buildInitialSchedule(users: Users): Schedule {
-  const s: Schedule = {};
-  Object.entries(users).forEach(([p, u]) => {
-    if (u.role === 'employee' || u.role === 'manager') {
-      s[Number(p)] = {};
-      DAYS.forEach((d) => { s[Number(p)][d] = []; });
-    }
-  });
-  return s;
 }

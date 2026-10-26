@@ -1,49 +1,82 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef, ReactNode } from 'react';
-import { Users, User, Availability, Schedule, Role, RestaurantKey, Shift, DayAvail, PositionKey, ShiftRequirements, ShiftSlot, SwapRequest, ComplianceWarning, ShiftPreset } from '@/types';
-import { INITIAL_USERS, DAYS, POSITIONS, buildInitialAvailability, buildInitialShiftRequirements, fmtRange } from '@/lib/constants';
+import { Users, User, Availability, Schedule, Role, RestaurantKey, Shift, DayAvail, PositionKey, ShiftRequirements, ShiftSlot, SwapRequest, ComplianceWarning, ShiftPreset, PublishedWeek } from '@/types';
+import { DAYS, POSITIONS, buildInitialShiftRequirements, fmtRange } from '@/lib/constants';
 
-function weekStartStr(offset: number): string {
-  const now = new Date();
-  const sun = new Date(now);
-  sun.setDate(now.getDate() - now.getDay() + offset * 7);
-  sun.setHours(0, 0, 0, 0);
-  return sun.toISOString().split('T')[0];
+/** Sunday of the week `offset` weeks from now, as a local YYYY-MM-DD string */
+export function weekStartStr(offset: number): string {
+  const sun = new Date();
+  sun.setDate(sun.getDate() - sun.getDay() + offset * 7);
+  const mm = String(sun.getMonth() + 1).padStart(2, '0');
+  const dd = String(sun.getDate()).padStart(2, '0');
+  return `${sun.getFullYear()}-${mm}-${dd}`;
 }
 
-const api = (path: string, method = 'GET', body?: object) =>
-  fetch(path, { method, headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+class ApiError extends Error {
+  constructor(public status: number, message: string) { super(message); }
+}
+
+async function api<T = Record<string, unknown>>(path: string, method = 'GET', body?: object): Promise<T> {
+  const res = await fetch(path, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(res.status, data.error ?? 'Could not reach the server. Check your connection.');
+  return data as T;
+}
+
+const shiftDur = (sh: Shift) => sh.e > sh.s ? sh.e - sh.s : 24 - sh.s + sh.e;
+const sameShifts = (a: Shift[], b: Shift[]) =>
+  JSON.stringify(a.map(({ s, e, position }) => [s, e, position ?? null])) ===
+  JSON.stringify(b.map(({ s, e, position }) => [s, e, position ?? null]));
 
 interface AuthUser extends User { pin: number; }
+export type FlashKind = 'success' | 'error';
 
-interface StoreCtx {
+interface DataResponse {
   users: Users;
   availability: Availability;
   schedule: Schedule;
+  published: Partial<Record<RestaurantKey, PublishedWeek>>;
+  shiftRequirements: Partial<ShiftRequirements>;
+  swapRequests: Record<string, SwapRequest>;
+  shiftPresets: Partial<Record<RestaurantKey, ShiftPreset[]>>;
+}
+
+interface StoreCtx {
+  ready: boolean;
+  users: Users;
+  availability: Availability;
+  schedule: Schedule;
+  weekStart: string;
+  getWeekSchedule: (ws: string) => Schedule | undefined;
   authUser: AuthUser | null;
   savedMsg: string;
+  savedKind: FlashKind;
   weekOffset: number;
-  login: (pin: number) => boolean;
-  loginWithCredentials: (username: string, password: string) => boolean;
+  login: (pin: number) => Promise<string | null>;
+  loginWithCredentials: (username: string, password: string) => Promise<string | null>;
   logout: () => void;
   setWeekOffset: React.Dispatch<React.SetStateAction<number>>;
-  setAvailDay: (pin: number, day: string, field: keyof DayAvail, value: boolean | number) => void;
+  setAvailDay: (pin: number, day: string, patch: Partial<DayAvail>) => void;
   addShift: (pin: number, day: string) => void;
   removeShift: (pin: number, day: string, shiftId: number) => void;
   updateShift: (pin: number, day: string, shiftId: number, field: 's' | 'e', value: number) => void;
   updateShiftPosition: (pin: number, day: string, shiftId: number, position: PositionKey) => void;
-  addUser: (pin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean) => string | null;
-  editUser: (origPin: number, newPin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean) => string | null;
-  deleteUser: (pin: number) => void;
-  flash: (msg: string) => void;
+  addUser: (pin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean) => Promise<string | null>;
+  editUser: (origPin: number, newPin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean) => Promise<string | null>;
+  deleteUser: (pin: number) => Promise<string | null>;
+  flash: (msg: string, kind?: FlashKind) => void;
   getEmployees: (restaurant: string) => [string, User][];
   getManagers:  (restaurant: string) => [string, User][];
   getSchedulableStaff: (restaurant: string) => [string, User][];
   empWeekHours: (pin: number) => number;
   clearSchedule: (restaurant: RestaurantKey) => void;
   publishedAt: Partial<Record<RestaurantKey, Date>>;
-  publishSchedule: (restaurant: RestaurantKey) => void;
+  publishSchedule: (restaurant: RestaurantKey) => Promise<boolean>;
   getComplianceWarnings: (restaurant: RestaurantKey) => ComplianceWarning[];
   shiftPresets: Record<RestaurantKey, ShiftPreset[]>;
   addShiftPreset: (restaurant: RestaurantKey, name: string, start: number, end: number, position?: PositionKey) => void;
@@ -51,7 +84,7 @@ interface StoreCtx {
   swapRequests: Record<string, SwapRequest>;
   requestSwap: (fromPin: number, fromDay: string, toPin: number, toDay: string) => void;
   respondSwap: (id: string, accept: boolean) => void;
-  approveSwap: (id: string, approve: boolean) => void;
+  approveSwap: (id: string, approve: boolean) => Promise<boolean>;
   shiftRequirements: ShiftRequirements;
   addShiftSlot: (restaurant: RestaurantKey, day: string, position: PositionKey) => void;
   updateShiftSlot: (restaurant: RestaurantKey, day: string, position: PositionKey, id: string, field: 'start' | 'end' | 'count', value: number) => void;
@@ -62,228 +95,213 @@ interface StoreCtx {
 const StoreContext = createContext<StoreCtx | null>(null);
 
 const isStaffRole = (role?: Role) => role === 'employee';
-const isManagerRole = (role?: Role) => role === 'manager' || role === 'owner';
+const EMPTY_PRESETS: Record<RestaurantKey, ShiftPreset[]> = { tlc: [], nickys: [], farmhouse: [] };
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const [users,             setUsers]             = useState<Users>(INITIAL_USERS);
-  const [availability,      setAvailability]      = useState<Availability>(() => buildInitialAvailability(INITIAL_USERS));
+  const [ready,             setReady]             = useState(false);
+  const [users,             setUsers]             = useState<Users>({});
+  const [availability,      setAvailability]      = useState<Availability>({});
   const [scheduleCache,     setScheduleCache]     = useState<Record<string, Schedule>>({});
+  const [publishedCache,    setPublishedCache]    = useState<Record<string, Partial<Record<RestaurantKey, PublishedWeek>>>>({});
   const [shiftRequirements, setShiftRequirements] = useState<ShiftRequirements>(buildInitialShiftRequirements);
+  const [swapRequests,      setSwapRequests]      = useState<Record<string, SwapRequest>>({});
+  const [shiftPresets,      setShiftPresets]      = useState<Record<RestaurantKey, ShiftPreset[]>>(EMPTY_PRESETS);
   const loadedWeeks = useRef<Set<string>>(new Set());
-  const [swapRequests,    setSwapRequests]    = useState<Record<string, SwapRequest>>({});
-  const [shiftPresets,   setShiftPresets]    = useState<Record<RestaurantKey, ShiftPreset[]>>({ tlc: [], nickys: [], farmhouse: [] });
-  const [publishedSchedules, setPublishedSchedules] = useState<Partial<Record<RestaurantKey, Schedule>>>({});
-  const [publishedAt,        setPublishedAt]        = useState<Partial<Record<RestaurantKey, Date>>>({});
 
-  const [authUser,          setAuthUser]          = useState<AuthUser | null>(null);
-  const [savedMsg,          setSavedMsg]          = useState('');
-  const [weekOffset,        setWeekOffset]        = useState(0);
+  const [authUser,   setAuthUser]   = useState<AuthUser | null>(null);
+  const [savedMsg,   setSavedMsg]   = useState('');
+  const [savedKind,  setSavedKind]  = useState<FlashKind>('success');
+  const [weekOffset, setWeekOffset] = useState(0);
+  const flashTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-  const schedule: Schedule = scheduleCache[weekStartStr(weekOffset)] ?? {};
+  const weekStart = weekStartStr(weekOffset);
+  const schedule: Schedule = scheduleCache[weekStart] ?? {};
 
-  // Load all data from the database on mount (week 0)
-  useEffect(() => {
-    const ws = weekStartStr(0);
-    loadedWeeks.current.add(ws);
-    api(`/api/data?weekStart=${ws}`).then((r) => r.json()).then((data) => {
-      if (!data.users || Object.keys(data.users).length === 0) return;
-      setUsers(data.users);
-      setAvailability(data.availability);
-      setScheduleCache({ [ws]: data.schedule ?? {} });
-      const baseReqs = buildInitialShiftRequirements();
-      const apiReqs = data.shiftRequirements ?? {};
-      for (const rest of Object.keys(baseReqs) as RestaurantKey[]) {
-        if (apiReqs[rest]) baseReqs[rest] = { ...baseReqs[rest], ...apiReqs[rest] };
-      }
-      setShiftRequirements(baseReqs);
-      setSwapRequests(data.swapRequests ?? {});
-      if (data.shiftPresets) {
-        setShiftPresets((prev) => ({ ...prev, ...data.shiftPresets }));
-      }
-      const pa: Partial<Record<RestaurantKey, Date>> = {};
-      for (const [k, v] of Object.entries(data.publishedAt ?? {})) pa[k as RestaurantKey] = new Date(v as string);
-      if (Object.keys(pa).length) setPublishedAt(pa);
-    }).catch(() => {});
+  const flash = useCallback((msg: string, kind: FlashKind = 'success') => {
+    setSavedMsg(msg);
+    setSavedKind(kind);
+    clearTimeout(flashTimer.current);
+    flashTimer.current = setTimeout(() => setSavedMsg(''), kind === 'error' ? 6000 : 3000);
   }, []);
+
+  const resetData = useCallback(() => {
+    loadedWeeks.current.clear();
+    setUsers({}); setAvailability({}); setScheduleCache({}); setPublishedCache({});
+    setShiftRequirements(buildInitialShiftRequirements()); setSwapRequests({}); setShiftPresets(EMPTY_PRESETS);
+  }, []);
+
+  const handleAuthLost = useCallback((e: unknown) => {
+    if (e instanceof ApiError && e.status === 401) {
+      setAuthUser(null);
+      setWeekOffset(0);
+      resetData();
+    }
+  }, [resetData]);
+
+  /** Loads everything for one week. `full` also replaces users, availability, templates and swaps. */
+  const loadWeek = useCallback(async (ws: string, full: boolean) => {
+    loadedWeeks.current.add(ws);
+    const data = await api<DataResponse>(`/api/data?weekStart=${ws}`);
+    setScheduleCache((prev) => ({ ...prev, [ws]: data.schedule }));
+    setPublishedCache((prev) => ({ ...prev, [ws]: data.published }));
+    if (!full) return;
+    setUsers(data.users);
+    setAvailability(data.availability);
+    const reqs = buildInitialShiftRequirements();
+    for (const rest of Object.keys(reqs) as RestaurantKey[]) {
+      if (data.shiftRequirements[rest]) reqs[rest] = { ...reqs[rest], ...data.shiftRequirements[rest] };
+    }
+    setShiftRequirements(reqs);
+    setSwapRequests(data.swapRequests);
+    setShiftPresets({ ...EMPTY_PRESETS, ...data.shiftPresets });
+  }, []);
+
+  /** Throws away local state and reloads from the server — used after any failed save. */
+  const resync = useCallback(async () => {
+    const ws = weekStartStr(weekOffset);
+    loadedWeeks.current.clear();
+    setScheduleCache({});
+    setPublishedCache({});
+    await loadWeek(ws, true).catch(handleAuthLost);
+  }, [weekOffset, loadWeek, handleAuthLost]);
+
+  /** Runs a save; on failure shows the server's message and reloads so the screen matches the database. */
+  const save = useCallback(<T,>(promise: Promise<T>): Promise<T | undefined> =>
+    promise.catch((e) => {
+      flash(e instanceof Error ? e.message : 'Save failed.', 'error');
+      handleAuthLost(e);
+      if (!(e instanceof ApiError && e.status === 401)) resync();
+      return undefined;
+    }),
+  [flash, handleAuthLost, resync]);
+
+  // Restore an existing session on page load
+  useEffect(() => {
+    api<{ user: AuthUser }>('/api/auth/me')
+      .then(async ({ user }) => { setAuthUser(user); await loadWeek(weekStartStr(0), true); })
+      .catch(() => {})
+      .finally(() => setReady(true));
+  }, [loadWeek]);
 
   // Load schedule for a week we haven't seen yet
   useEffect(() => {
-    const ws = weekStartStr(weekOffset);
-    if (loadedWeeks.current.has(ws)) return;
-    loadedWeeks.current.add(ws);
-    api(`/api/data?weekStart=${ws}`).then((r) => r.json()).then((data) => {
-      if (data.schedule) setScheduleCache((prev) => ({ ...prev, [ws]: data.schedule }));
-    }).catch(() => {});
-  }, [weekOffset]);
+    if (!authUser || loadedWeeks.current.has(weekStart)) return;
+    loadWeek(weekStart, false).catch((e) => { loadedWeeks.current.delete(weekStart); handleAuthLost(e); });
+  }, [authUser, weekStart, loadWeek, handleAuthLost]);
 
-  const flash = useCallback((msg: string) => {
-    setSavedMsg(msg);
-    setTimeout(() => setSavedMsg(''), 3000);
-  }, []);
+  const startSession = useCallback(async (path: string, body: object): Promise<string | null> => {
+    try {
+      const { user } = await api<{ user: AuthUser }>(path, 'POST', body);
+      resetData();
+      setWeekOffset(0);
+      await loadWeek(weekStartStr(0), true);
+      setAuthUser(user);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : 'Sign-in failed.';
+    }
+  }, [loadWeek, resetData]);
 
-  const login = useCallback((pin: number): boolean => {
-    const u = users[pin];
-    if (!u || !isStaffRole(u.role)) return false;
-    setAuthUser({ ...u, pin });
-    return true;
-  }, [users]);
+  const login = useCallback((pin: number) => startSession('/api/auth/pin', { pin }), [startSession]);
+  const loginWithCredentials = useCallback((username: string, password: string) =>
+    startSession('/api/auth/login', { username, password }), [startSession]);
 
-  const loginWithCredentials = useCallback((username: string, password: string): boolean => {
-    const normalized = username.trim().toLowerCase();
-    const found = Object.entries(users).find(([, u]) =>
-      isManagerRole(u.role) &&
-      u.username?.toLowerCase() === normalized &&
-      u.password === password
-    );
-    if (!found) return false;
-    const [pin, user] = found;
-    setAuthUser({ ...user, pin: Number(pin) });
-    return true;
-  }, [users]);
+  const logout = useCallback(() => {
+    api('/api/auth/logout', 'POST').catch(() => {});
+    setAuthUser(null);
+    setWeekOffset(0);
+    resetData();
+  }, [resetData]);
 
-  const logout = useCallback(() => { setAuthUser(null); setWeekOffset(0); }, []);
-
-  const setAvailDay = useCallback((pin: number, day: string, field: keyof DayAvail, value: boolean | number) => {
+  const setAvailDay = useCallback((pin: number, day: string, patch: Partial<DayAvail>) => {
     setAvailability((prev) => ({
       ...prev,
-      [pin]: { ...prev[pin], [day]: { ...prev[pin]?.[day], [field]: value } },
+      [pin]: { ...prev[pin], [day]: { ...prev[pin]?.[day], ...patch } },
     }));
-    api('/api/availability', 'PUT', { pin, day, field, value });
+    save(api('/api/availability', 'PUT', { pin, day, ...patch }));
+  }, [save]);
+
+  const updateWeekDay = useCallback((ws: string, pin: number, day: string, fn: (shifts: Shift[]) => Shift[]) => {
+    setScheduleCache((prev) => {
+      const week = prev[ws] ?? {};
+      return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: fn(week[pin]?.[day] ?? []) } } };
+    });
   }, []);
 
   const addShift = useCallback((pin: number, day: string) => {
     const ws = weekStartStr(weekOffset);
-    const tempId = Date.now();
+    // Negative IDs mark shifts the server hasn't confirmed yet; they can't be edited until it does
+    const tempId = -Date.now();
     const newShift: Shift = { id: tempId, s: 18, e: 2, position: users[pin]?.position };
-    setScheduleCache((prev) => {
-      const week = prev[ws] ?? {};
-      return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: [...(week[pin]?.[day] ?? []), newShift] } } };
-    });
-    api('/api/shifts', 'POST', { pin, day, start: newShift.s, end: newShift.e, position: newShift.position ?? null, weekStart: ws })
-      .then((r) => r.json()).then((data) => {
-        if (data.id) {
-          setScheduleCache((prev) => {
-            const week = prev[ws] ?? {};
-            return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: (week[pin]?.[day] ?? []).map((sh: Shift) => sh.id === tempId ? { ...sh, id: data.id } : sh) } } };
-          });
-        }
-      }).catch(() => {});
-  }, [users, weekOffset]);
+    updateWeekDay(ws, pin, day, (list) => [...list, newShift]);
+    save(api<{ id: number }>('/api/shifts', 'POST', { pin, day, start: newShift.s, end: newShift.e, position: newShift.position ?? null, weekStart: ws }))
+      .then((data) => {
+        if (data) updateWeekDay(ws, pin, day, (list) => list.map((sh) => sh.id === tempId ? { ...sh, id: data.id } : sh));
+      });
+  }, [users, weekOffset, save, updateWeekDay]);
 
   const removeShift = useCallback((pin: number, day: string, shiftId: number) => {
-    const ws = weekStartStr(weekOffset);
-    setScheduleCache((prev) => {
-      const week = prev[ws] ?? {};
-      return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: (week[pin]?.[day] ?? []).filter((sh: Shift) => sh.id !== shiftId) } } };
-    });
-    api(`/api/shifts/${shiftId}`, 'DELETE');
-  }, [weekOffset]);
+    updateWeekDay(weekStartStr(weekOffset), pin, day, (list) => list.filter((sh) => sh.id !== shiftId));
+    save(api(`/api/shifts/${shiftId}`, 'DELETE'));
+  }, [weekOffset, save, updateWeekDay]);
 
   const updateShift = useCallback((pin: number, day: string, shiftId: number, field: 's' | 'e', value: number) => {
-    const ws = weekStartStr(weekOffset);
-    setScheduleCache((prev) => {
-      const week = prev[ws] ?? {};
-      return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: (week[pin]?.[day] ?? []).map((sh: Shift) => sh.id === shiftId ? { ...sh, [field]: value } : sh) } } };
-    });
-    api(`/api/shifts/${shiftId}`, 'PUT', { [field === 's' ? 'start' : 'end']: value });
-  }, [weekOffset]);
+    updateWeekDay(weekStartStr(weekOffset), pin, day, (list) => list.map((sh) => sh.id === shiftId ? { ...sh, [field]: value } : sh));
+    save(api(`/api/shifts/${shiftId}`, 'PUT', { [field === 's' ? 'start' : 'end']: value }));
+  }, [weekOffset, save, updateWeekDay]);
 
   const updateShiftPosition = useCallback((pin: number, day: string, shiftId: number, position: PositionKey) => {
-    const ws = weekStartStr(weekOffset);
-    setScheduleCache((prev) => {
-      const week = prev[ws] ?? {};
-      return { ...prev, [ws]: { ...week, [pin]: { ...week[pin], [day]: (week[pin]?.[day] ?? []).map((sh: Shift) => sh.id === shiftId ? { ...sh, position } : sh) } } };
-    });
-    api(`/api/shifts/${shiftId}`, 'PUT', { position });
-  }, [weekOffset]);
+    updateWeekDay(weekStartStr(weekOffset), pin, day, (list) => list.map((sh) => sh.id === shiftId ? { ...sh, position } : sh));
+    save(api(`/api/shifts/${shiftId}`, 'PUT', { position }));
+  }, [weekOffset, save, updateWeekDay]);
 
-  const validateCredentials = useCallback((pin: number, role: Role, username?: string, password?: string, originalPin?: number): string | null => {
+  const validateStaff = useCallback((pin: number, name: string, role: Role, username?: string, password?: string, originalPin?: number): string | null => {
+    if (!name.trim())                           return 'Name is required.';
+    if (isNaN(pin) || String(pin).length !== 4) return 'PIN must be exactly 4 digits.';
+    if (pin !== originalPin && users[pin])      return 'PIN already in use.';
     if (isStaffRole(role)) return null;
     const trimmedUsername = username?.trim() ?? '';
     if (!trimmedUsername) return 'Username is required for managers.';
-    if (!password?.trim()) return 'Password is required for managers.';
+    const keepsPassword = originalPin != null && users[originalPin]?.hasPassword;
+    if (!password?.trim() && !keepsPassword) return 'Password is required for managers.';
     const usernameTaken = Object.entries(users).some(([p, u]) =>
-      Number(p) !== (originalPin ?? pin) &&
-      isManagerRole(u.role) &&
-      u.username?.toLowerCase() === trimmedUsername.toLowerCase()
+      Number(p) !== originalPin && u.username?.toLowerCase() === trimmedUsername.toLowerCase()
     );
     return usernameTaken ? 'Username already in use.' : null;
   }, [users]);
 
-  const addUser = useCallback((pin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean): string | null => {
-    if (!name.trim())                           return 'Name is required.';
-    if (isNaN(pin) || String(pin).length !== 4) return 'PIN must be exactly 4 digits.';
-    if (users[pin])                             return 'PIN already in use.';
-    const credentialError = validateCredentials(pin, role, username, password);
-    if (credentialError) return credentialError;
-    const newUser = {
-      name: name.trim(), role, restaurant,
-      ...(position ? { position } : {}), ...(wage ? { wage } : {}), ...(isMinor ? { isMinor: true } : {}),
-      ...(!isStaffRole(role) ? { username: username!.trim(), password: password!.trim() } : {}),
-    };
-    setUsers((prev) => ({ ...prev, [pin]: newUser }));
-    api('/api/users', 'POST', { pin, ...newUser });
-    setAvailability((prev) => {
-      const map: { [d: string]: DayAvail } = {};
-      DAYS.forEach((d) => { map[d] = { unavailable: true, open: false, start: 9, end: 17 }; });
-      return { ...prev, [pin]: map };
-    });
-    setScheduleCache((prev) => {
-      const ws = weekStartStr(weekOffset);
-      const map: { [d: string]: Shift[] } = {};
-      DAYS.forEach((d) => { map[d] = []; });
-      return { ...prev, [ws]: { ...(prev[ws] ?? {}), [pin]: map } };
-    });
-    return null;
-  }, [users, validateCredentials, weekOffset]);
-
-  const editUser = useCallback((origPin: number, newPin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean): string | null => {
-    if (!name.trim())                                 return 'Name is required.';
-    if (isNaN(newPin) || String(newPin).length !== 4) return 'PIN must be exactly 4 digits.';
-    if (newPin !== origPin && users[newPin])           return 'PIN already in use.';
-    const credentialError = validateCredentials(newPin, role, username, password, origPin);
-    if (credentialError) return credentialError;
-    const updatedUser = {
-      pin: newPin, name: name.trim(), role, restaurant,
-      ...(position ? { position } : {}), ...(wage ? { wage } : {}), ...(isMinor ? { isMinor: true } : {}),
-      ...(!isStaffRole(role) ? { username: username!.trim(), password: password!.trim() } : {}),
-    };
-    setUsers((prev) => {
-      const n = { ...prev };
-      if (newPin !== origPin) delete n[origPin];
-      n[newPin] = updatedUser;
-      return n;
-    });
-    api(`/api/users/${origPin}`, 'PUT', updatedUser);
-    if (newPin !== origPin) {
-      setAvailability((prev) => { const n = { ...prev, [newPin]: prev[origPin] ?? {} }; delete n[origPin]; return n; });
-      setScheduleCache((prev) => {
-        const next: Record<string, Schedule> = {};
-        for (const [ws, week] of Object.entries(prev)) {
-          const w = { ...week, [newPin]: week[origPin] ?? {} } as Schedule;
-          delete w[origPin];
-          next[ws] = w;
-        }
-        return next;
-      });
+  /** Sends a staff change and reloads from the server; returns an error message or null. */
+  const saveStaff = useCallback(async (request: Promise<unknown>): Promise<string | null> => {
+    try {
+      await request;
+      await loadWeek(weekStartStr(weekOffset), true);
+      return null;
+    } catch (e) {
+      handleAuthLost(e);
+      return e instanceof Error ? e.message : 'Save failed.';
     }
-    return null;
-  }, [users, validateCredentials]);
+  }, [loadWeek, weekOffset, handleAuthLost]);
 
-  const deleteUser = useCallback((pin: number) => {
-    setUsers((prev)        => { const n = { ...prev }; delete n[pin]; return n; });
-    setAvailability((prev) => { const n = { ...prev }; delete n[pin]; return n; });
-    setScheduleCache((prev) => {
-      const next: Record<string, Schedule> = {};
-      for (const [ws, week] of Object.entries(prev)) {
-        const w = { ...week } as Schedule;
-        delete w[pin];
-        next[ws] = w;
-      }
-      return next;
-    });
-    api(`/api/users/${pin}`, 'DELETE');
-  }, []);
+  const addUser = useCallback(async (pin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean) => {
+    const err = validateStaff(pin, name, role, username, password);
+    if (err) return err;
+    return saveStaff(api('/api/users', 'POST', { pin, name, role, restaurant, username, password, position, wage, isMinor }));
+  }, [validateStaff, saveStaff]);
+
+  const editUser = useCallback(async (origPin: number, newPin: number, name: string, role: Role, restaurant: RestaurantKey, username?: string, password?: string, position?: PositionKey, wage?: number, isMinor?: boolean) => {
+    const err = validateStaff(newPin, name, role, username, password, origPin);
+    if (err) return err;
+    const result = await saveStaff(api(`/api/users/${origPin}`, 'PUT', { pin: newPin, name, role, restaurant, username, password, position, wage, isMinor }));
+    // Other weeks are cached under the old PIN
+    if (!result && newPin !== origPin) {
+      const ws = weekStartStr(weekOffset);
+      loadedWeeks.current = new Set([ws]);
+      setScheduleCache((prev) => ({ [ws]: prev[ws] }));
+    }
+    return result;
+  }, [validateStaff, saveStaff, weekOffset]);
+
+  const deleteUser = useCallback((pin: number) => saveStaff(api(`/api/users/${pin}`, 'DELETE')), [saveStaff]);
 
   const getEmployees = useCallback((restaurant: string): [string, User][] =>
     Object.entries(users).filter(([, u]) => u.restaurant === restaurant && isStaffRole(u.role)),
@@ -305,44 +323,49 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       });
   }, [users]);
 
+  const staffPins = useCallback((restaurant: RestaurantKey) =>
+    Object.entries(users)
+      .filter(([, u]) => u.restaurant === restaurant && (isStaffRole(u.role) || u.role === 'manager'))
+      .map(([p]) => Number(p)),
+  [users]);
+
   const empWeekHours = useCallback((pin: number): number =>
-    DAYS.reduce((acc, d) => {
-      const shifts = schedule[pin]?.[d] ?? [];
-      return acc + shifts.reduce((a, sh) => a + shiftDur(sh), 0);
-    }, 0),
+    DAYS.reduce((acc, d) => acc + (schedule[pin]?.[d] ?? []).reduce((a, sh) => a + shiftDur(sh), 0), 0),
   [schedule]);
 
-  const shiftDur = (sh: Shift) => sh.e > sh.s ? sh.e - sh.s : 24 - sh.s + sh.e;
+  /** Replaces a restaurant's week on the server and uses the saved shifts (with real IDs). */
+  const saveWeek = useCallback((restaurant: RestaurantKey, ws: string, shifts: Record<number, Record<string, Shift[]>>) => {
+    setScheduleCache((prev) => ({ ...prev, [ws]: { ...(prev[ws] ?? {}), ...shifts } }));
+    save(api<{ schedule: Schedule }>('/api/shifts/bulk', 'POST', { restaurant, shifts, weekStart: ws }))
+      .then((data) => {
+        if (data) setScheduleCache((prev) => ({ ...prev, [ws]: { ...(prev[ws] ?? {}), ...data.schedule } }));
+      });
+  }, [save]);
 
   const clearSchedule = useCallback((restaurant: RestaurantKey) => {
-    const staffPins = Object.entries(users)
-      .filter(([, u]) => u.restaurant === restaurant && (isStaffRole(u.role) || u.role === 'manager'))
-      .map(([p]) => Number(p));
-    const clearedShifts: Record<number, Record<string, Shift[]>> = {};
-    staffPins.forEach((pin) => { clearedShifts[pin] = {}; DAYS.forEach((d) => { clearedShifts[pin][d] = []; }); });
-    const ws = weekStartStr(weekOffset);
-    setScheduleCache((prev) => ({ ...prev, [ws]: { ...(prev[ws] ?? {}), ...clearedShifts } }));
-    api('/api/shifts/bulk', 'POST', { pins: staffPins, shifts: clearedShifts, weekStart: ws });
-  }, [users, weekOffset]);
+    const cleared: Record<number, Record<string, Shift[]>> = {};
+    staffPins(restaurant).forEach((pin) => { cleared[pin] = {}; DAYS.forEach((d) => { cleared[pin][d] = []; }); });
+    saveWeek(restaurant, weekStartStr(weekOffset), cleared);
+  }, [staffPins, saveWeek, weekOffset]);
 
-  const publishSchedule = useCallback((restaurant: RestaurantKey) => {
-    const pins = Object.entries(users)
-      .filter(([, u]) => u.restaurant === restaurant && (isStaffRole(u.role) || u.role === 'manager'))
-      .map(([p]) => Number(p));
-    setPublishedSchedules((prev) => ({
-      ...prev,
-      [restaurant]: Object.fromEntries(pins.map((pin) => [pin, { ...schedule[pin] }])),
-    }));
-    setPublishedAt((prev) => ({ ...prev, [restaurant]: new Date() }));
-    api('/api/publish', 'POST', { restaurant });
-  }, [schedule, users]);
+  const published = publishedCache[weekStart] ?? {};
+  const publishedAt: Partial<Record<RestaurantKey, Date>> = {};
+  for (const [k, v] of Object.entries(published)) if (v) publishedAt[k as RestaurantKey] = new Date(v.publishedAt);
+
+  const publishSchedule = useCallback(async (restaurant: RestaurantKey) => {
+    const ws = weekStartStr(weekOffset);
+    const data = await save(api<PublishedWeek>('/api/publish', 'POST', { restaurant, weekStart: ws }));
+    if (!data) return false;
+    setPublishedCache((prev) => ({ ...prev, [ws]: { ...(prev[ws] ?? {}), [restaurant]: data } }));
+    return true;
+  }, [save, weekOffset]);
 
   const getComplianceWarnings = useCallback((restaurant: RestaurantKey): ComplianceWarning[] => {
     const warnings: ComplianceWarning[] = [];
     const staff = Object.entries(users).filter(([, u]) =>
       u.restaurant === restaurant && (isStaffRole(u.role) || u.role === 'manager')
     );
-    const published = publishedSchedules[restaurant];
+    const snapshot = published[restaurant]?.snapshot;
 
     for (const [pinStr, user] of staff) {
       const pin = Number(pinStr);
@@ -350,7 +373,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       for (let di = 0; di < DAYS.length; di++) {
         const day    = DAYS[di];
-        const shifts = schedule[pin]?.[day] ?? [];
+        const shifts = [...(schedule[pin]?.[day] ?? [])].sort((a, b) => a.s - b.s);
+
+        if (snapshot && !sameShifts(snapshot[pin]?.[day] ?? [], shifts)) {
+          warnings.push({ type: 'changed-after-publish', severity: 'info', pin,
+            message: `${user.name}'s ${day} shift changed after publishing` });
+        }
         if (shifts.length === 0) continue;
 
         for (const sh of shifts) {
@@ -373,7 +401,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
         // Short rest: compare last shift of this day to first shift of next day
         if (di < DAYS.length - 1) {
-          const nextShifts = schedule[pin]?.[DAYS[di + 1]] ?? [];
+          const nextShifts = [...(schedule[pin]?.[DAYS[di + 1]] ?? [])].sort((a, b) => a.s - b.s);
           if (nextShifts.length > 0) {
             const lastSh = shifts[shifts.length - 1];
             const firstNext = nextShifts[0];
@@ -382,15 +410,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               warnings.push({ type: 'short-rest', severity: 'warning', pin,
                 message: `${user.name} has only ${rest}h rest between ${day} and ${DAYS[di + 1]}` });
             }
-          }
-        }
-
-        if (published) {
-          const pubShifts = published[pin]?.[day] ?? [];
-          const curShifts = schedule[pin]?.[day] ?? [];
-          if (JSON.stringify(pubShifts) !== JSON.stringify(curShifts)) {
-            warnings.push({ type: 'changed-after-publish', severity: 'info', pin,
-              message: `${user.name}'s ${day} shift changed after publishing` });
           }
         }
       }
@@ -402,86 +421,73 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     return warnings;
-  }, [schedule, users, publishedSchedules]);
+  }, [schedule, users, published]);
 
   const addShiftPreset = useCallback((restaurant: RestaurantKey, name: string, start: number, end: number, position?: PositionKey) => {
-    api('/api/shift-presets', 'POST', { restaurant, name, start, end, position: position ?? null })
-      .then((r) => r.json()).then((data) => {
-        if (data.id) {
-          setShiftPresets((prev) => ({
-            ...prev,
-            [restaurant]: [...(prev[restaurant] ?? []), { id: data.id, name, start, end, ...(position ? { position } : {}) }],
-          }));
-        }
-      }).catch(() => {});
-  }, []);
+    save(api<ShiftPreset>('/api/shift-presets', 'POST', { restaurant, name, start, end, position: position ?? null }))
+      .then((data) => {
+        if (!data) return;
+        setShiftPresets((prev) => ({
+          ...prev,
+          [restaurant]: [...(prev[restaurant] ?? []), { id: data.id, name, start, end, ...(position ? { position } : {}) }],
+        }));
+      });
+  }, [save]);
 
   const removeShiftPreset = useCallback((restaurant: RestaurantKey, id: number) => {
     setShiftPresets((prev) => ({ ...prev, [restaurant]: (prev[restaurant] ?? []).filter((p) => p.id !== id) }));
-    api(`/api/shift-presets/${id}`, 'DELETE');
-  }, []);
+    save(api(`/api/shift-presets/${id}`, 'DELETE'));
+  }, [save]);
 
   const requestSwap = useCallback((fromPin: number, fromDay: string, toPin: number, toDay: string) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setSwapRequests((prev) => ({ ...prev, [id]: { id, fromPin, fromDay, toPin, toDay, status: 'pending' } }));
-    api('/api/swap-requests', 'POST', { id, fromPin, fromDay, toPin, toDay });
+    save(api<SwapRequest>('/api/swap-requests', 'POST', { fromDay, toPin, toDay, weekStart: weekStartStr(weekOffset) }))
+      .then((req) => {
+        if (!req) return;
+        setSwapRequests((prev) => ({ ...prev, [req.id]: req }));
+        flash('Swap request sent.');
+      });
+  }, [save, flash, weekOffset]);
+
+  const setSwapStatus = useCallback((id: string, status: SwapRequest['status']) => {
+    setSwapRequests((prev) => prev[id] ? { ...prev, [id]: { ...prev[id], status } } : prev);
   }, []);
 
   const respondSwap = useCallback((id: string, accept: boolean) => {
-    const status = accept ? 'awaiting_approval' : 'declined';
-    setSwapRequests((prev) => {
-      const req = prev[id];
-      if (!req) return prev;
-      return { ...prev, [id]: { ...req, status } };
-    });
-    api(`/api/swap-requests/${id}`, 'PUT', { status });
-  }, []);
+    save(api<{ status: SwapRequest['status'] }>(`/api/swap-requests/${id}`, 'PUT', { action: accept ? 'accept' : 'decline' }))
+      .then((data) => { if (data) setSwapStatus(id, data.status); });
+  }, [save, setSwapStatus]);
 
-  const approveSwap = useCallback((id: string, approve: boolean) => {
-    const status = approve ? 'accepted' : 'declined';
-    setSwapRequests((prev) => {
-      const req = prev[id];
-      if (!req) return prev;
-      if (approve) {
-        const ws = weekStartStr(weekOffset);
-        setScheduleCache((cache) => {
-          const week = cache[ws] ?? {};
-          const fromShifts = week[req.fromPin]?.[req.fromDay] ?? [];
-          const toShifts   = week[req.toPin]?.[req.toDay]   ?? [];
-          return { ...cache, [ws]: { ...week, [req.fromPin]: { ...week[req.fromPin], [req.fromDay]: toShifts }, [req.toPin]: { ...week[req.toPin], [req.toDay]: fromShifts } } };
-        });
-      }
-      return { ...prev, [id]: { ...req, status } };
-    });
-    api(`/api/swap-requests/${id}`, 'PUT', { status, swapShifts: approve });
-  }, [weekOffset]);
+  const approveSwap = useCallback(async (id: string, approve: boolean) => {
+    const req = swapRequests[id];
+    const ws  = req?.weekStart || weekStartStr(weekOffset);
+    const data = await save(api<{ status: SwapRequest['status'] }>(`/api/swap-requests/${id}`, 'PUT', { action: approve ? 'approve' : 'deny', weekStart: ws }));
+    if (!data) return false;
+    setSwapStatus(id, data.status);
+    if (approve) await loadWeek(ws, false).catch(handleAuthLost);
+    return true;
+  }, [swapRequests, weekOffset, save, setSwapStatus, loadWeek, handleAuthLost]);
 
-  const addShiftSlot = useCallback((restaurant: RestaurantKey, day: string, position: PositionKey) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    const newSlot: ShiftSlot = { id, start: 18, end: 2, count: 1 };
+  const updateSlots = useCallback((restaurant: RestaurantKey, day: string, position: PositionKey, fn: (slots: ShiftSlot[]) => ShiftSlot[]) => {
     setShiftRequirements((prev) => {
       const dayReqs = prev[restaurant][day] ?? {};
-      const existing = dayReqs[position] ?? [];
-      return { ...prev, [restaurant]: { ...prev[restaurant], [day]: { ...dayReqs, [position]: [...existing, newSlot] } } };
+      return { ...prev, [restaurant]: { ...prev[restaurant], [day]: { ...dayReqs, [position]: fn(dayReqs[position] ?? []) } } };
     });
-    api('/api/shift-slots', 'POST', { id, restaurant, day, position, start: newSlot.start, end: newSlot.end, count: newSlot.count });
   }, []);
+
+  const addShiftSlot = useCallback((restaurant: RestaurantKey, day: string, position: PositionKey) => {
+    save(api<ShiftSlot>('/api/shift-slots', 'POST', { restaurant, day, position, start: 18, end: 2 }))
+      .then((slot) => { if (slot) updateSlots(restaurant, day, position, (slots) => [...slots, slot]); });
+  }, [save, updateSlots]);
 
   const updateShiftSlot = useCallback((restaurant: RestaurantKey, day: string, position: PositionKey, id: string, field: 'start' | 'end' | 'count', value: number) => {
-    setShiftRequirements((prev) => {
-      const slots = (prev[restaurant][day]?.[position] ?? []).map((s) => s.id === id ? { ...s, [field]: value } : s);
-      return { ...prev, [restaurant]: { ...prev[restaurant], [day]: { ...prev[restaurant][day], [position]: slots } } };
-    });
-    api(`/api/shift-slots/${id}`, 'PUT', { field, value });
-  }, []);
+    updateSlots(restaurant, day, position, (slots) => slots.map((s) => s.id === id ? { ...s, [field]: value } : s));
+    save(api(`/api/shift-slots/${id}`, 'PUT', { field, value }));
+  }, [save, updateSlots]);
 
   const removeShiftSlot = useCallback((restaurant: RestaurantKey, day: string, position: PositionKey, id: string) => {
-    setShiftRequirements((prev) => {
-      const slots = (prev[restaurant][day]?.[position] ?? []).filter((s) => s.id !== id);
-      return { ...prev, [restaurant]: { ...prev[restaurant], [day]: { ...prev[restaurant][day], [position]: slots } } };
-    });
-    api(`/api/shift-slots/${id}`, 'DELETE');
-  }, []);
+    updateSlots(restaurant, day, position, (slots) => slots.filter((s) => s.id !== id));
+    save(api(`/api/shift-slots/${id}`, 'DELETE'));
+  }, [save, updateSlots]);
 
   const autoSchedule = useCallback((restaurant: RestaurantKey): string[] => {
     const warnings: string[] = [];
@@ -530,22 +536,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const ws = weekStartStr(weekOffset);
-    setScheduleCache((prev) => {
-      const week = { ...(prev[ws] ?? {}) };
-      for (const [pinStr] of staff) { week[Number(pinStr)] = newShifts[Number(pinStr)]; }
-      return { ...prev, [ws]: week };
-    });
-
-    const pins = staff.map(([p]) => Number(p));
-    api('/api/shifts/bulk', 'POST', { pins, shifts: newShifts, weekStart: ws });
-
+    saveWeek(restaurant, weekStartStr(weekOffset), newShifts);
     return warnings;
-  }, [shiftRequirements, availability, users, weekOffset]);
+  }, [shiftRequirements, availability, users, weekOffset, saveWeek]);
+
+  const getWeekSchedule = useCallback((ws: string) => scheduleCache[ws], [scheduleCache]);
 
   return (
     <StoreContext.Provider value={{
-      users, availability, schedule, authUser, savedMsg, weekOffset,
+      ready, users, availability, schedule, weekStart, getWeekSchedule, authUser, savedMsg, savedKind, weekOffset,
       login, loginWithCredentials, logout, setWeekOffset, setAvailDay,
       addShift, removeShift, updateShift, updateShiftPosition,
       addUser, editUser, deleteUser, flash,

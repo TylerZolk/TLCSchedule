@@ -1,8 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/db';
+import { HttpError, assertManages, requireUser, route } from '@/lib/auth';
+import * as v from '@/lib/validate';
 
-export async function POST(req: NextRequest) {
-  const { id, restaurant, day, position, start, end, count } = await req.json();
-  const slot = await prisma.shiftSlot.create({ data: { id, restaurant, day, position, start, end, count } });
-  return NextResponse.json(slot);
-}
+export const POST = route(async (req) => {
+  const me   = await requireUser('manager', 'owner');
+  const body = await req.json();
+  const restaurant = v.restaurant(body.restaurant);
+  assertManages(me, restaurant);
+  const position = v.position(restaurant, body.position);
+  if (!position) throw new HttpError(400, 'Position is required.');
+  const slot = await prisma.shiftSlot.create({
+    data: { id: randomUUID(), restaurant, day: v.day(body.day), position, start: v.hour(body.start), end: v.hour(body.end), count: 1 },
+  });
+  return NextResponse.json({ id: slot.id, start: slot.start, end: slot.end, count: slot.count });
+});

@@ -25,6 +25,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
   const rest = RESTAURANTS[restaurant];
   const [form, setForm]       = useState<FormState | null>(null);
   const [formErr, setFormErr] = useState('');
+  const [saving, setSaving]   = useState(false);
 
   const staff = Object.entries(users).filter(
     ([, u]) => u.restaurant === restaurant && (u.role === 'employee' || u.role === 'manager')
@@ -44,23 +45,31 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
     restaurant: users[p].restaurant as RestaurantKey,
     position: users[p].position ?? '',
     username: users[p].username ?? '',
-    password: users[p].password ?? '',
+    password: '', // never sent to the browser; blank keeps the current one
     wage: users[p].wage != null ? String(users[p].wage) : '',
     isMinor: users[p].isMinor ?? false,
   });
 
   const closeForm = () => { setForm(null); setFormErr(''); };
 
-  const handleSave = () => {
-    if (!form) return;
+  const handleSave = async () => {
+    if (!form || saving) return;
     const pin  = parseInt(form.pin);
     const wage = form.wage !== '' ? parseFloat(form.wage) : undefined;
+    setSaving(true);
     const err  = form.mode === 'add'
-      ? addUser(pin, form.name, form.role, form.restaurant, form.username, form.password, form.position || undefined, wage, form.isMinor || undefined)
-      : editUser(form.origPin!, pin, form.name, form.role, form.restaurant, form.username, form.password, form.position || undefined, wage, form.isMinor || undefined);
+      ? await addUser(pin, form.name, form.role, form.restaurant, form.username, form.password, form.position || undefined, wage, form.isMinor || undefined)
+      : await editUser(form.origPin!, pin, form.name, form.role, form.restaurant, form.username, form.password, form.position || undefined, wage, form.isMinor || undefined);
+    setSaving(false);
     if (err) { setFormErr(err); return; }
     flash(form.mode === 'add' ? `${form.name} added (PIN ${form.pin})` : 'Staff member updated');
     closeForm();
+  };
+
+  const handleDelete = async (p: number, name: string) => {
+    if (!confirm(`Remove ${name}? Their shifts, availability and swap requests will be deleted.`)) return;
+    const err = await deleteUser(p);
+    flash(err ?? `${name} removed`, err ? 'error' : 'success');
   };
 
   return (
@@ -156,7 +165,8 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">Password</label>
-                <input type="text" value={form.password} maxLength={40} placeholder="Temporary password"
+                <input type="password" value={form.password} maxLength={40} autoComplete="new-password"
+                  placeholder={form.mode === 'edit' && form.origPin != null && users[form.origPin]?.hasPassword ? 'Leave blank to keep current' : 'Temporary password'}
                   onChange={(e) => { setForm((f) => f && ({ ...f, password: e.target.value })); setFormErr(''); }}
                   className="w-full text-sm px-3 py-2 rounded-lg border border-black/10 bg-white focus:outline-none focus:border-black/40" />
               </div>
@@ -165,7 +175,7 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
 
           {formErr && <p className="text-xs text-red-600 mb-3">{formErr}</p>}
           <div className="flex gap-2">
-            <button onClick={handleSave} className="px-4 py-1.5 text-sm font-medium bg-[#0D6E4F] text-white rounded-lg hover:opacity-90 transition-all">Save</button>
+            <button onClick={handleSave} disabled={saving} className="px-4 py-1.5 text-sm font-medium bg-[#0D6E4F] text-white rounded-lg hover:opacity-90 transition-all disabled:opacity-60">{saving ? 'Saving…' : 'Save'}</button>
             <button onClick={closeForm} className="px-4 py-1.5 text-sm border border-black/10 rounded-lg hover:bg-gray-100 transition-all">Cancel</button>
           </div>
         </div>
@@ -211,8 +221,10 @@ export default function ManageStaff({ restaurant }: { restaurant: string }) {
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-2">
                         <button onClick={() => openEdit(Number(p))} className="text-xs px-2.5 py-1 border border-black/10 rounded-lg hover:bg-gray-100 transition-all">Edit</button>
-                        <button onClick={() => { deleteUser(Number(p)); flash(`${u.name} removed`); }}
-                          className="text-xs px-2.5 py-1 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 transition-all">Remove</button>
+                        {Number(p) !== authUser?.pin && (
+                          <button onClick={() => handleDelete(Number(p), u.name)}
+                            className="text-xs px-2.5 py-1 border border-red-200 text-red-700 rounded-lg hover:bg-red-50 transition-all">Remove</button>
+                        )}
                       </div>
                     </td>
                   )}

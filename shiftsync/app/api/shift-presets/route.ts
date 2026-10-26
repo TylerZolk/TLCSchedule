@@ -1,10 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { assertManages, requireUser, route } from '@/lib/auth';
+import * as v from '@/lib/validate';
 
-export async function POST(req: NextRequest) {
-  const { restaurant, name, start, end, position } = await req.json();
+export const POST = route(async (req) => {
+  const me   = await requireUser('manager', 'owner');
+  const body = await req.json();
+  const restaurant = v.restaurant(body.restaurant);
+  assertManages(me, restaurant);
   const preset = await prisma.shiftPreset.create({
-    data: { restaurant, name, start, end, position: position ?? null },
+    data: { restaurant, name: v.str(body.name, 'Name', 40), start: v.hour(body.start), end: v.hour(body.end), position: v.position(restaurant, body.position) },
   });
   return NextResponse.json(preset);
-}
+});

@@ -1,26 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { HttpError, assertManages, requireUser, route } from '@/lib/auth';
+import { staffFields } from '../fields';
 
-export async function PUT(req: NextRequest, { params }: { params: Promise<{ pin: string }> }) {
-  const { pin: pinStr } = await params;
-  const origPin = parseInt(pinStr);
-  const { pin: newPin, name, role, restaurant, position, username, password, wage, isMinor } = await req.json();
+type Ctx = { params: Promise<{ pin: string }> };
 
-  if (newPin !== origPin) {
-    await prisma.$transaction([
-      prisma.user.create({ data: { pin: newPin, name, role, restaurant: restaurant ?? null, position: position ?? null, username: username ?? null, password: password ?? null, wage: wage ?? null, isMinor: isMinor ?? false } }),
-      prisma.availability.updateMany({ where: { pin: origPin }, data: { pin: newPin } }),
-      prisma.shift.updateMany({ where: { pin: origPin }, data: { pin: newPin } }),
-      prisma.user.delete({ where: { pin: origPin } }),
-    ]);
-  } else {
-    await prisma.user.update({ where: { pin: origPin }, data: { name, role, restaurant: restaurant ?? null, position: position ?? null, username: username ?? null, password: password ?? null, wage: wage ?? null, isMinor: isMinor ?? false } });
-  }
-  return NextResponse.json({ ok: true });
+async function loadTarget(pinStr: string) {
+  const pin = Number(pinStr);
+  const user = Number.isInteger(pin) ? await prisma.user.findUnique({ where: { pin } }) : null;
+  if (!user) throw new HttpError(404, 'Staff member not found.');
+  if (user.role === 'owner') throw new HttpError(403, 'The owner account cannot be changed here.');
+  return user;
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ pin: string }> }) {
-  const { pin: pinStr } = await params;
-  await prisma.user.delete({ where: { pin: parseInt(pinStr) } });
+export const PUT = route<Ctx>(async (req, { params }) => {
+  const me     = await requireUser('manager', 'owner');
+  const target = await loadTarget((await params).pin);
+  assertManages(me, target.restaurant);
+  const data = await staffFields(me, await req.json(), target);
+  // Changing the PIN cascades to shifts, availability, swaps and sessions in the database
+  await prisma.user.update({ where: { pin: target.pin }, data });
   return NextResponse.json({ ok: true });
-}
+});
+
+export const DELETE = route<Ctx>(async (_req, { params }) => {
+  const me     = await requireUser('manager', 'owner');
+  const target = await loadTarget((await params).pin);
+  assertManages(me, target.restaurant);
+  if (target.pin === me.pin) throw new HttpError(400, "You can't remove yourself.");
+  // Shifts, availability, swap requests and sessions are removed with the user
+  await prisma.user.delete({ where: { pin: target.pin } });
+  return NextResponse.json({ ok: true });
+});

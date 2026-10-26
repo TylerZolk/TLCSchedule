@@ -14,7 +14,7 @@ export default function OwnerOverview() {
         {Object.entries(RESTAURANTS).map(([rk, r]) => {
           const emps       = getEmployees(rk);
           const mgrs       = getManagers(rk);
-          const working    = emps.filter(([p]) => DAYS.some((d) => schedule[Number(p)]?.[d])).length;
+          const working    = emps.filter(([p]) => DAYS.some((d) => (schedule[Number(p)]?.[d] ?? []).length > 0)).length;
           const totalHours = emps.reduce((acc, [p]) => acc + empWeekHours(Number(p)), 0);
 
           return (

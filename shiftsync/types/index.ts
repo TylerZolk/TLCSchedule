@@ -8,7 +8,7 @@ export interface User {
   restaurant: RestaurantKey | null;
   position?: PositionKey;
   username?: string;
-  password?: string;
+  hasPassword?: boolean; // passwords never leave the server
   wage?: number;
   isMinor?: boolean;
 }
@@ -84,5 +84,11 @@ export interface SwapRequest {
   fromDay: string;
   toPin: number;
   toDay: string;
+  weekStart: string;
   status: 'pending' | 'awaiting_approval' | 'accepted' | 'declined';
+}
+
+export interface PublishedWeek {
+  publishedAt: string;
+  snapshot: Schedule;
 }

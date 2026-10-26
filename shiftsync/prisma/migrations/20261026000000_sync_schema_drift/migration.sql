@@ -1,0 +1,21 @@
+-- Catches the migration history up with changes that were applied to the
+-- production database directly. Written to be a no-op where already applied.
+
+-- AlterTable
+ALTER TABLE "Availability" ALTER COLUMN "start" SET DEFAULT 9,
+ALTER COLUMN "start" SET DATA TYPE DOUBLE PRECISION,
+ALTER COLUMN "end" SET DEFAULT 17,
+ALTER COLUMN "end" SET DATA TYPE DOUBLE PRECISION;
+
+-- AlterTable
+ALTER TABLE "Shift" ADD COLUMN IF NOT EXISTS "weekStart" TEXT NOT NULL DEFAULT '';
+ALTER TABLE "Shift" ALTER COLUMN "start" SET DATA TYPE DOUBLE PRECISION,
+ALTER COLUMN "end" SET DATA TYPE DOUBLE PRECISION;
+
+-- AlterTable
+ALTER TABLE "ShiftPreset" ALTER COLUMN "start" SET DATA TYPE DOUBLE PRECISION,
+ALTER COLUMN "end" SET DATA TYPE DOUBLE PRECISION;
+
+-- AlterTable
+ALTER TABLE "ShiftSlot" ALTER COLUMN "start" SET DATA TYPE DOUBLE PRECISION,
+ALTER COLUMN "end" SET DATA TYPE DOUBLE PRECISION;

@@ -15,7 +15,7 @@ export default function MySchedule() {
   const {
     authUser, users, schedule, availability, weekOffset, setWeekOffset,
     addShift, removeShift, updateShift, updateShiftPosition, empWeekHours,
-    swapRequests, requestSwap, respondSwap, getSchedulableStaff,
+    swapRequests, requestSwap, respondSwap, getSchedulableStaff, weekStart,
   } = useStore();
 
   const dates  = getWeekDates(weekOffset);
@@ -41,10 +41,12 @@ export default function MySchedule() {
     setToDay('');
   }
 
+  // Swaps belong to a week; requests from before that existed show on the current week
+  const inWeek   = (r: { weekStart: string }) => r.weekStart === weekStart || (!r.weekStart && weekOffset === 0);
   const incoming = Object.values(swapRequests).filter(
-    (r) => r.toPin === myPin && (r.status === 'pending' || r.status === 'awaiting_approval')
+    (r) => inWeek(r) && r.toPin === myPin && (r.status === 'pending' || r.status === 'awaiting_approval')
   );
-  const outgoing = Object.values(swapRequests).filter((r) => r.fromPin === myPin);
+  const outgoing = Object.values(swapRequests).filter((r) => inWeek(r) && r.fromPin === myPin);
 
   return (
     <>

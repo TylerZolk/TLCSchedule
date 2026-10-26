@@ -31,14 +31,13 @@ export default function OwnerSchedule() {
     if (w.length === 0) flash('Schedule auto-filled successfully!');
   }
 
-  function handlePublish() {
-    publishSchedule(restaurant);
-    flash('Schedule published to employees!');
+  async function handlePublish() {
+    if (await publishSchedule(restaurant)) flash('Schedule published to employees!');
   }
 
   return (
     <>
-      <SectionHeader title="Build Schedule" sub={`${weekLabel(dates)} · Click a shift to edit hours · Click "Off" to add a shift`}>
+      <SectionHeader title="Build Schedule" sub={`${weekLabel(dates)} · Click a shift to edit hours · Use "+ Add" to add a shift`}>
         <WeekNav weekOffset={weekOffset} onChange={setWeekOffset} />
         <button onClick={handleAutoSchedule}
           className="px-4 py-2 text-sm font-medium bg-white border border-black/15 text-gray-700 rounded-lg hover:bg-gray-50 transition-all">

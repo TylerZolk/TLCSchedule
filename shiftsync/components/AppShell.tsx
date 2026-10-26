@@ -46,7 +46,7 @@ function getTabs(role: string): TabDef[] {
 }
 
 export default function AppShell() {
-  const { authUser, savedMsg } = useStore();
+  const { authUser, savedMsg, savedKind } = useStore();
   const tabs = getTabs(authUser!.role);
   const [active, setActive] = useState<TabId>(tabs[0].id);
 
@@ -66,7 +66,7 @@ export default function AppShell() {
       </nav>
 
       <main className="flex-1 p-3 sm:p-6 max-w-[1200px] mx-auto w-full">
-        {savedMsg && <SaveBanner message={savedMsg} />}
+        {savedMsg && <SaveBanner message={savedMsg} kind={savedKind} />}
 
         {active === 'my-schedule'   && <MySchedule />}
         {active === 'team-schedule' && <TeamSchedule />}

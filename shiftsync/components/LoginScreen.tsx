@@ -10,27 +10,31 @@ export default function LoginScreen() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const handleDigit = (digit: string) => {
-    if (pin.length >= 4) return;
+  const handleDigit = async (digit: string) => {
+    if (busy || pin.length >= 4) return;
     const next = pin + digit;
     setPin(next);
     setError('');
     if (next.length === 4) {
-      const ok = login(parseInt(next));
-      if (!ok) {
-        setTimeout(() => {
-          setError('Invalid employee PIN. Please try again.');
-          setPin('');
-        }, 300);
+      setBusy(true);
+      const err = await login(parseInt(next));
+      setBusy(false);
+      if (err) {
+        setError(err);
+        setPin('');
       }
     }
   };
 
-  const handleStaffLogin = (e: React.FormEvent) => {
+  const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const ok = loginWithCredentials(username, password);
-    if (!ok) setError('Invalid username or password.');
+    if (busy) return;
+    setBusy(true);
+    const err = await loginWithCredentials(username, password);
+    setBusy(false);
+    if (err) setError(err);
   };
 
   const switchMode = (nextMode: 'employee' | 'manager') => {
@@ -145,9 +149,10 @@ export default function LoginScreen() {
             </div>
             <button
               type="submit"
-              className="w-full py-2.5 text-sm font-medium bg-[#0D6E4F] text-white rounded-lg hover:opacity-90 transition-all"
+              disabled={busy}
+              className="w-full disabled:opacity-60 py-2.5 text-sm font-medium bg-[#0D6E4F] text-white rounded-lg hover:opacity-90 transition-all"
             >
-              Sign in
+              {busy ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
         )}

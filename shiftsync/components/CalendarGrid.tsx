@@ -141,7 +141,7 @@ export default function CalendarGrid({
 
               return (
                 <div key={d}
-                  className={`relative border-r border-black/[0.04] last:border-r-0 flex flex-col items-stretch p-1 gap-1 min-h-[70px] ${isToday(weekDates[i]) ? 'bg-[#0D6E4F]/[0.02]' : ''} ${isUnavailable && shifts.length === 0 ? '' : ''}`}>
+                  className={`group/cell relative border-r border-black/[0.04] last:border-r-0 flex flex-col items-stretch p-1 gap-1 min-h-[70px] ${isToday(weekDates[i]) ? 'bg-[#0D6E4F]/[0.02]' : ''}`}>
 
                   {/* Unavailable background when no shifts */}
                   {isUnavailable && shifts.length === 0 && (
@@ -152,9 +152,10 @@ export default function CalendarGrid({
                   )}
 
                   {/* Shift blocks */}
-                  {shifts.map((sh) => (
-                    <div key={sh.id}
-                      onClick={() => editable && sh.id != null && setEditing({ pin: p, day: d, shiftId: sh.id! })}
+                  {/* Shifts with no ID or a negative (unsaved) ID can't be edited yet */}
+                  {shifts.map((sh, idx) => (
+                    <div key={sh.id ?? `new-${idx}`}
+                      onClick={() => editable && sh.id != null && sh.id > 0 && setEditing({ pin: p, day: d, shiftId: sh.id })}
                       className={`rounded-lg border-[1.5px] px-2 py-1 ${positionColorClass(sh.position ?? users[p]?.position)} ${editable ? 'cursor-pointer hover:opacity-80 transition-all' : ''} relative group`}>
                       {(sh.position ?? users[p]?.position) && (
                         <div className="text-[9px] font-semibold uppercase tracking-wide opacity-70 mb-0.5">
@@ -180,8 +181,7 @@ export default function CalendarGrid({
                   {editable && (
                     <button
                       onClick={() => onAddShift(p, d)}
-                      className="text-[9px] text-center py-0.5 rounded text-[#0D6E4F] hover:bg-[#0D6E4F]/10 transition-all opacity-0 hover:opacity-100 group-hover:opacity-100 relative z-10"
-                      style={{ opacity: shifts.length > 0 ? undefined : 0.7 }}>
+                      className={`text-[9px] text-center py-0.5 rounded text-[#0D6E4F] hover:bg-[#0D6E4F]/10 transition-all relative z-10 ${shifts.length > 0 ? 'opacity-40 group-hover/cell:opacity-100' : 'opacity-70 hover:opacity-100'}`}>
                       + Add
                     </button>
                   )}
@@ -297,7 +297,7 @@ export default function CalendarGrid({
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-1.5">Start</p>
                 <select value={editSh.s}
-                  onChange={(e) => onUpdateShift(editing.pin, editDay, editSh.id!, 's', parseInt(e.target.value))}
+                  onChange={(e) => onUpdateShift(editing.pin, editDay, editSh.id!, 's', Number(e.target.value))}
                   className="w-full text-sm py-2.5 px-3 rounded-xl border border-black/10 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0D6E4F]/20">
                   {HOURS.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
                 </select>
@@ -305,7 +305,7 @@ export default function CalendarGrid({
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-1.5">End</p>
                 <select value={editSh.e}
-                  onChange={(e) => onUpdateShift(editing.pin, editDay, editSh.id!, 'e', parseInt(e.target.value))}
+                  onChange={(e) => onUpdateShift(editing.pin, editDay, editSh.id!, 'e', Number(e.target.value))}
                   className="w-full text-sm py-2.5 px-3 rounded-xl border border-black/10 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0D6E4F]/20">
                   {END_HOURS.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
                 </select>

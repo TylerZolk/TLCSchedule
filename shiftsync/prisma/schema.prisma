@@ -23,6 +23,7 @@ model User {
   shifts           Shift[]
   swapRequestsFrom SwapRequest[]  @relation("FromUser")
   swapRequestsTo   SwapRequest[]  @relation("ToUser")
+  sessions         Session[]
 }
 
 model Availability {
@@ -67,16 +68,31 @@ model SwapRequest {
   fromDay   String
   toPin     Int
   toDay     String
+  weekStart String   @default("")
   status    String   @default("pending")
   createdAt DateTime @default(now())
 
-  fromUser User @relation("FromUser", fields: [fromPin], references: [pin])
-  toUser   User @relation("ToUser",   fields: [toPin],   references: [pin])
+  fromUser User @relation("FromUser", fields: [fromPin], references: [pin], onDelete: Cascade)
+  toUser   User @relation("ToUser",   fields: [toPin],   references: [pin], onDelete: Cascade)
 }
 
-model PublishedAt {
-  restaurant  String   @id
+// Snapshot of a restaurant's schedule for one week, as employees see it
+model PublishedSchedule {
+  restaurant  String
+  weekStart   String
   publishedAt DateTime @default(now())
+  snapshot    Json
+
+  @@id([restaurant, weekStart])
+}
+
+model Session {
+  token     String   @id
+  pin       Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [pin], references: [pin], onDelete: Cascade)
 }
 
 model ShiftPreset {

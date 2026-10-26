@@ -1,8 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { HttpError, assertManages, requireUser, route } from '@/lib/auth';
 
-export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  await prisma.shiftPreset.delete({ where: { id: parseInt(id) } });
+export const DELETE = route<{ params: Promise<{ id: string }> }>(async (_req, { params }) => {
+  const me = await requireUser('manager', 'owner');
+  const id = Number((await params).id);
+  const preset = Number.isInteger(id) ? await prisma.shiftPreset.findUnique({ where: { id } }) : null;
+  if (!preset) throw new HttpError(404, 'That preset no longer exists.');
+  assertManages(me, preset.restaurant);
+  await prisma.shiftPreset.delete({ where: { id } });
   return NextResponse.json({ ok: true });
-}
+});

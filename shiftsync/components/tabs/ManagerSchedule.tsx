@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useStore } from '@/lib/store';
-import { getWeekDates, weekLabel, RESTAURANTS, buildLaborSummary } from '@/lib/constants';
+import { getWeekDates, getWeekDatesFor, weekLabel, RESTAURANTS, buildLaborSummary } from '@/lib/constants';
 import { SectionHeader, WeekNav } from '@/components/SectionHeader';
 import CalendarGrid from '@/components/CalendarGrid';
 import CompliancePanel from '@/components/CompliancePanel';
@@ -14,7 +14,7 @@ export default function ManagerSchedule() {
     authUser, users, schedule, availability, weekOffset, setWeekOffset,
     addShift, removeShift, updateShift, updateShiftPosition, flash, empWeekHours,
     getSchedulableStaff, autoSchedule, clearSchedule, publishedAt, publishSchedule, getComplianceWarnings,
-    shiftPresets, swapRequests, approveSwap,
+    shiftPresets, swapRequests, approveSwap, weekStart, getWeekSchedule,
   } = useStore();
 
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -37,9 +37,12 @@ export default function ManagerSchedule() {
     if (w.length === 0) flash('Schedule auto-filled successfully!');
   }
 
-  function handlePublish() {
-    publishSchedule(restaurant);
-    flash('Schedule published to employees!');
+  async function handlePublish() {
+    if (await publishSchedule(restaurant)) flash('Schedule published to employees!');
+  }
+
+  async function handleSwap(id: string, approve: boolean) {
+    if (await approveSwap(id, approve)) flash(approve ? 'Swap approved.' : 'Swap denied.');
   }
 
   return (
@@ -111,30 +114,34 @@ export default function ManagerSchedule() {
             {pendingSwaps.map((req) => {
               const from   = users[req.fromPin];
               const to     = users[req.toPin];
-              const fromShs = schedule[req.fromPin]?.[req.fromDay] ?? [];
-              const toShs   = schedule[req.toPin]?.[req.toDay]   ?? [];
+              const ws      = req.weekStart || weekStart;
+              const weekSch = getWeekSchedule(ws);
+              const fromShs = weekSch?.[req.fromPin]?.[req.fromDay] ?? [];
+              const toShs   = weekSch?.[req.toPin]?.[req.toDay]   ?? [];
+              const label   = (shs: typeof fromShs) => !weekSch ? '…' : shs.length ? shs.map((s) => fmtRange(s.s, s.e)).join(', ') : 'Off';
               return (
                 <div key={req.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-gray-800 mb-1.5">
                       {from?.name} ↔ {to?.name}
+                      <span className="ml-2 text-xs font-normal text-gray-400">week of {weekLabel(getWeekDatesFor(ws))}</span>
                     </p>
                     <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
                       <span className="px-2 py-1 bg-gray-100 rounded-lg">
-                        {from?.name.split(' ')[0]}'s {req.fromDay}: {fromShs.length ? fromShs.map((s) => fmtRange(s.s, s.e)).join(', ') : 'Off'}
+                        {from?.name.split(' ')[0]}'s {req.fromDay}: {label(fromShs)}
                       </span>
                       <span>↔</span>
                       <span className="px-2 py-1 bg-gray-100 rounded-lg">
-                        {to?.name.split(' ')[0]}'s {req.toDay}: {toShs.length ? toShs.map((s) => fmtRange(s.s, s.e)).join(', ') : 'Off'}
+                        {to?.name.split(' ')[0]}'s {req.toDay}: {label(toShs)}
                       </span>
                     </div>
                   </div>
                   <div className="flex gap-2 shrink-0">
-                    <button onClick={() => { approveSwap(req.id, true); flash('Swap approved.'); }}
+                    <button onClick={() => handleSwap(req.id, true)}
                       className="flex-1 sm:flex-none px-4 py-2 rounded-lg bg-[#0D6E4F] text-white text-xs font-medium hover:opacity-90 transition-all">
                       Approve
                     </button>
-                    <button onClick={() => { approveSwap(req.id, false); flash('Swap denied.'); }}
+                    <button onClick={() => handleSwap(req.id, false)}
                       className="flex-1 sm:flex-none px-4 py-2 rounded-lg border border-black/10 text-xs text-gray-600 hover:bg-gray-50 transition-all">
                       Deny
                     </button>
